@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import type { Product, Category, Order } from "@/types";
 
 interface DbProduct {
@@ -63,7 +63,7 @@ function toOrder(row: DbOrder): Order {
 }
 
 export async function getProducts(): Promise<Product[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
         .from("products")
         .select("*")
         .order("created_at", { ascending: false });
@@ -72,7 +72,7 @@ export async function getProducts(): Promise<Product[]> {
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
         .from("products")
         .select("*")
         .eq("is_featured", true)
@@ -82,7 +82,7 @@ export async function getFeaturedProducts(): Promise<Product[]> {
 }
 
 export async function getNewProducts(): Promise<Product[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
         .from("products")
         .select("*")
         .eq("is_new", true)
@@ -92,7 +92,7 @@ export async function getNewProducts(): Promise<Product[]> {
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
         .from("products")
         .select("*")
         .eq("slug", slug)
@@ -102,13 +102,13 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 }
 
 export async function getProductSlugs(): Promise<string[]> {
-    const { data, error } = await supabase.from("products").select("slug");
+    const { data, error } = await getSupabaseClient().from("products").select("slug");
     if (error) return [];
     return (data as { slug: string }[]).map((r) => r.slug);
 }
 
 export async function getCategories(): Promise<Category[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
         .from("categories")
         .select("*")
         .order("name");
@@ -117,7 +117,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function getOrders(): Promise<Order[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseClient()
         .from("orders")
         .select("*")
         .order("created_at", { ascending: false });
@@ -126,7 +126,7 @@ export async function getOrders(): Promise<Order[]> {
 }
 
 export async function createOrder(order: Order): Promise<void> {
-    const { error } = await supabase.from("orders").insert({
+    const { error } = await getSupabaseClient().from("orders").insert({
         id: order.id,
         customer_name: order.customerName,
         email: order.email,
