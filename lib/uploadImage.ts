@@ -8,15 +8,16 @@ export async function uploadProductImage(file: File): Promise<string> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error("Database not available");
 
+    const bucketDiff = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "product-images";
     const ext = file.name.split(".").pop() ?? "jpg";
     const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { error } = await supabase.storage
-        .from("product-images")
+        .from(bucketDiff)
         .upload(path, file, { cacheControl: "31536000", upsert: false });
 
     if (error) throw error;
 
-    const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+    const { data } = supabase.storage.from(bucketDiff).getPublicUrl(path);
     return data.publicUrl;
 }
