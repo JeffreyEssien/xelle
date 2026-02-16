@@ -28,10 +28,19 @@ export default function AdminOrdersContent({ initialOrders }: AdminOrdersContent
 
     return (
         <div>
-            <h1 className="font-serif text-3xl text-brand-dark mb-8">Orders</h1>
+            <h1 className="font-serif text-2xl sm:text-3xl text-brand-dark mb-6 sm:mb-8">Orders</h1>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div className={selected ? "xl:col-span-2" : "xl:col-span-3"}>
-                    <OrderTable orders={orderList} onStatusChange={updateStatus} onSelect={setSelected} selectedId={selected?.id} />
+                    {/* Desktop table */}
+                    <div className="hidden md:block">
+                        <OrderTable orders={orderList} onStatusChange={updateStatus} onSelect={setSelected} selectedId={selected?.id} />
+                    </div>
+                    {/* Mobile cards */}
+                    <div className="md:hidden space-y-3">
+                        {orderList.map((o) => (
+                            <OrderCard key={o.id} order={o} onStatusChange={updateStatus} onSelect={setSelected} isSelected={selected?.id === o.id} />
+                        ))}
+                    </div>
                 </div>
                 {selected && (
                     <div className="xl:col-span-1">
@@ -43,6 +52,46 @@ export default function AdminOrdersContent({ initialOrders }: AdminOrdersContent
     );
 }
 
+/* ── Mobile Order Card ── */
+function OrderCard({ order, onStatusChange, onSelect, isSelected }: {
+    order: Order; onStatusChange: (id: string, s: Order["status"]) => void;
+    onSelect: (o: Order) => void; isSelected: boolean;
+}) {
+    return (
+        <div
+            onClick={() => onSelect(order)}
+            className={`bg-white rounded-lg border p-4 cursor-pointer transition-colors ${isSelected ? "border-brand-purple ring-1 ring-brand-purple/20" : "border-brand-lilac/20 hover:border-brand-lilac/40"}`}
+        >
+            <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                    <p className="text-sm font-medium text-brand-dark truncate">{order.customerName}</p>
+                    <p className="text-xs text-brand-dark/50 truncate">{order.email}</p>
+                </div>
+                <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+                <span className="font-mono text-brand-dark/40">{order.id}</span>
+                <span className="font-medium text-brand-dark">{formatCurrency(order.total)}</span>
+            </div>
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-brand-lilac/10">
+                <span className="text-xs text-brand-dark/50">{new Date(order.createdAt).toLocaleDateString()}</span>
+                <div onClick={(e) => e.stopPropagation()}>
+                    <select
+                        value={order.status}
+                        onChange={(e) => onStatusChange(order.id, e.target.value as Order["status"])}
+                        className="text-xs border border-brand-lilac/20 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-purple/30 bg-white"
+                    >
+                        {statusOptions.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Desktop Order Table (unchanged) ── */
 function OrderTable({ orders, onStatusChange, onSelect, selectedId }: {
     orders: Order[]; onStatusChange: (id: string, s: Order["status"]) => void;
     onSelect: (o: Order) => void; selectedId?: string;

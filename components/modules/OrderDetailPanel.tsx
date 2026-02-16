@@ -17,58 +17,72 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
     const addr = order.shippingAddress;
 
     return (
-        <div className="bg-white rounded-lg border border-brand-lilac/20 p-6 sticky top-24 space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="font-serif text-lg text-brand-dark">{order.id}</h2>
-                <button type="button" onClick={onClose} className="text-brand-dark/40 hover:text-brand-dark cursor-pointer">✕</button>
-            </div>
+        <>
+            {/* Mobile backdrop overlay */}
+            <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm xl:hidden" onClick={onClose} />
 
-            <Section title="Status">
-                <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
-                <p className="text-xs text-brand-dark/50 mt-1">
-                    Placed on {new Date(order.createdAt).toLocaleString()}
-                </p>
-            </Section>
+            {/* Panel: full-screen modal on mobile, sticky sidebar on desktop */}
+            <div className="fixed inset-0 z-50 overflow-y-auto xl:relative xl:inset-auto xl:z-auto">
+                <div className="min-h-full flex items-end xl:items-start xl:min-h-0">
+                    <div className="w-full bg-white rounded-t-2xl xl:rounded-t-none xl:rounded-lg border border-brand-lilac/20 p-5 sm:p-6 space-y-5 sm:space-y-6 xl:sticky xl:top-24 animate-slideUp xl:animate-none">
+                        <div className="flex items-center justify-between">
+                            <h2 className="font-serif text-lg text-brand-dark">{order.id}</h2>
+                            <button type="button" onClick={onClose} className="text-brand-dark/40 hover:text-brand-dark cursor-pointer p-1 -mr-1">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
 
-            <Section title="Customer">
-                <p className="text-sm text-brand-dark font-medium">{order.customerName}</p>
-                <p className="text-xs text-brand-dark/60">{order.email}</p>
-                <p className="text-xs text-brand-dark/60">{order.phone}</p>
-            </Section>
+                        <Section title="Status">
+                            <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
+                            <p className="text-xs text-brand-dark/50 mt-1">
+                                Placed on {new Date(order.createdAt).toLocaleString()}
+                            </p>
+                        </Section>
 
-            <Section title="Delivery Address">
-                <p className="text-sm text-brand-dark">{addr.address}</p>
-                <p className="text-sm text-brand-dark">{addr.city}, {addr.state} {addr.zip}</p>
-                <p className="text-sm text-brand-dark">{addr.country}</p>
-            </Section>
+                        <Section title="Customer">
+                            <p className="text-sm text-brand-dark font-medium">{order.customerName}</p>
+                            <p className="text-xs text-brand-dark/60">{order.email}</p>
+                            <p className="text-xs text-brand-dark/60">{order.phone}</p>
+                        </Section>
 
-            {order.items.length > 0 && (
-                <Section title="Items">
-                    <ul className="space-y-2">
-                        {order.items.map((item) => (
-                            <li key={item.product.id} className="flex justify-between text-sm">
-                                <span className="text-brand-dark/80">
-                                    {item.product.name} <span className="text-brand-dark/40">×{item.quantity}</span>
-                                </span>
-                                <span className="text-brand-dark font-medium">
-                                    {formatCurrency(item.product.price * item.quantity)}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </Section>
-            )}
+                        <Section title="Delivery Address">
+                            <p className="text-sm text-brand-dark">{addr.address}</p>
+                            <p className="text-sm text-brand-dark">{addr.city}, {addr.state} {addr.zip}</p>
+                            <p className="text-sm text-brand-dark">{addr.country}</p>
+                        </Section>
 
-            <Section title="Totals">
-                <div className="space-y-1">
-                    <Row label="Subtotal" value={formatCurrency(order.subtotal)} />
-                    <Row label="Shipping" value={order.shipping === 0 ? "Free" : formatCurrency(order.shipping)} />
-                    <div className="border-t border-brand-lilac/10 pt-2 mt-2">
-                        <Row label="Total" value={formatCurrency(order.total)} bold />
+                        {order.items.length > 0 && (
+                            <Section title="Items">
+                                <ul className="space-y-2">
+                                    {order.items.map((item) => (
+                                        <li key={item.product.id} className="flex justify-between text-sm gap-2">
+                                            <span className="text-brand-dark/80 min-w-0 truncate">
+                                                {item.product.name} <span className="text-brand-dark/40">×{item.quantity}</span>
+                                            </span>
+                                            <span className="text-brand-dark font-medium shrink-0">
+                                                {formatCurrency(item.product.price * item.quantity)}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </Section>
+                        )}
+
+                        <Section title="Totals">
+                            <div className="space-y-1">
+                                <Row label="Subtotal" value={formatCurrency(order.subtotal)} />
+                                <Row label="Shipping" value={order.shipping === 0 ? "Free" : formatCurrency(order.shipping)} />
+                                <div className="border-t border-brand-lilac/10 pt-2 mt-2">
+                                    <Row label="Total" value={formatCurrency(order.total)} bold />
+                                </div>
+                            </div>
+                        </Section>
                     </div>
                 </div>
-            </Section>
-        </div>
+            </div>
+        </>
     );
 }
 

@@ -17,7 +17,7 @@ export default async function AdminDashboard() {
 
     return (
         <div>
-            <h1 className="font-serif text-3xl text-brand-dark mb-8">Dashboard</h1>
+            <h1 className="font-serif text-2xl sm:text-3xl text-brand-dark mb-6 sm:mb-8">Dashboard</h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 <SummaryCard title="Total Sales" value={formatCurrency(totalSales)} accent="purple" />
                 <SummaryCard title="Pending Orders" value={String(pendingOrders)} accent="amber" />
