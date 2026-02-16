@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-lilac: #C8A2C8;
+  --color-brand-purple: #B665D2;
+  --color-brand-dark: #4B0082;
+  --color-brand-white: #FFFFFF;
+
+  --font-serif: var(--font-playfair), "Georgia", serif;
+  --font-sans: var(--font-inter), "Helvetica Neue", sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-brand-white);
+    color: var(--color-brand-dark);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
