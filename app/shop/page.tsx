@@ -3,7 +3,7 @@ import Footer from "@/components/modules/Footer";
 import { getProducts, getCategories } from "@/lib/queries";
 import ShopContent from "@/components/modules/ShopContent";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function ShopPage() {
     const [products, categories] = await Promise.all([

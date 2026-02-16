@@ -3,9 +3,9 @@ import Header from "@/components/modules/Header";
 import Footer from "@/components/modules/Footer";
 import ProductDetails from "@/components/modules/ProductDetails";
 import ProductImageGallery from "@/components/modules/ProductImageGallery";
-import { getProductBySlug, getProductSlugs } from "@/lib/queries";
+import { getProductBySlug } from "@/lib/queries";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 interface Props {
     params: Promise<{ slug: string }>;
@@ -28,9 +28,4 @@ export default async function ProductPage({ params }: Props) {
             <Footer />
         </>
     );
-}
-
-export async function generateStaticParams() {
-    const slugs = await getProductSlugs();
-    return slugs.map((slug) => ({ slug }));
 }

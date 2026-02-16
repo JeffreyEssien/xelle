@@ -6,7 +6,7 @@ import AboutSnippet from "@/components/modules/AboutSnippet";
 import Footer from "@/components/modules/Footer";
 import { getNewProducts, getCategories } from "@/lib/queries";
 
-export const revalidate = 60; // revalidate every 60s
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const [newProducts, categories] = await Promise.all([

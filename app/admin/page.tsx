@@ -3,7 +3,7 @@ import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import SummaryCard from "@/components/modules/SummaryCard";
 import { getProducts, getOrders } from "@/lib/queries";
 
-export const revalidate = 30;
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
     const [products, orders] = await Promise.all([
