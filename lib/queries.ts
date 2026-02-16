@@ -157,3 +157,37 @@ export async function createOrder(order: Order): Promise<void> {
     });
     if (error) throw error;
 }
+
+export interface CreateProductInput {
+    name: string;
+    description: string;
+    price: number;
+    stock: number;
+    category: string;
+    images: string[];
+}
+
+export async function createProduct(input: CreateProductInput): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const slug = input.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    const { error } = await supabase.from("products").insert({
+        slug,
+        name: input.name,
+        description: input.description,
+        price: input.price,
+        category: input.category,
+        brand: "",
+        stock: input.stock,
+        images: input.images,
+        is_featured: false,
+        is_new: true,
+    });
+    if (error) throw error;
+}
+
