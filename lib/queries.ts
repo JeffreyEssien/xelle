@@ -190,4 +190,35 @@ export async function createProduct(input: CreateProductInput): Promise<void> {
     });
     if (error) throw error;
 }
+export async function updateProduct(id: string, input: CreateProductInput): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
 
+    const slug = input.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    const { error } = await supabase
+        .from("products")
+        .update({
+            slug,
+            name: input.name,
+            description: input.description,
+            price: input.price,
+            category: input.category,
+            stock: input.stock,
+            images: input.images,
+        })
+        .eq("id", id);
+
+    if (error) throw error;
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("products").delete().eq("id", id);
+    if (error) throw error;
+}

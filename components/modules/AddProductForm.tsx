@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import type { Product } from "@/types";
 import Button from "@/components/ui/Button";
 import { uploadProductImage } from "@/lib/uploadImage";
-import { createProduct } from "@/lib/queries";
+import { createProduct, updateProduct } from "@/lib/queries";
 
-export default function AddProductForm() {
+export default function AddProductForm({ initialData }: { initialData?: Product | null }) {
     const [loading, setLoading] = useState(false);
     const [images, setImages] = useState<File[]>([]);
-    const [imageUrls, setImageUrls] = useState<string[]>([]);
+    const [imageUrls, setImageUrls] = useState<string[]>(initialData?.images || []);
     const [uploading, setUploading] = useState(false);
 
     const [form, setForm] = useState({
-        title: "",
-        description: "",
-        price: "",
-        stock: "",
-        category: "",
+        title: initialData?.name || "",
+        description: initialData?.description || "",
+        price: initialData?.price.toString() || "",
+        stock: initialData?.stock.toString() || "",
+        category: initialData?.category || "",
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -52,30 +53,43 @@ export default function AddProductForm() {
 
         setLoading(true);
         try {
-            await createProduct({
-                name: form.title,
-                description: form.description,
-                price: parseFloat(form.price),
-                stock: parseInt(form.stock),
-                category: form.category,
-                images: imageUrls,
-            });
-
-            alert("Product created successfully!");
+            if (initialData) {
+                await updateProduct(initialData.id, {
+                    name: form.title,
+                    description: form.description,
+                    price: parseFloat(form.price),
+                    stock: parseInt(form.stock),
+                    category: form.category,
+                    images: imageUrls,
+                });
+                alert("Product updated successfully!");
+            } else {
+                await createProduct({
+                    name: form.title,
+                    description: form.description,
+                    price: parseFloat(form.price),
+                    stock: parseInt(form.stock),
+                    category: form.category,
+                    images: imageUrls,
+                });
+                alert("Product created successfully!");
+            }
             // Reset form
-            setForm({
-                title: "",
-                description: "",
-                price: "",
-                stock: "",
-                category: "",
-            });
-            setImages([]);
-            setImageUrls([]);
+            if (!initialData) {
+                setForm({
+                    title: "",
+                    description: "",
+                    price: "",
+                    stock: "",
+                    category: "",
+                });
+                setImages([]);
+                setImageUrls([]);
+            }
             window.location.reload(); // Refresh to show new product
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Failed to create product.");
+            alert(`Failed to save product: ${error.message || JSON.stringify(error)}`);
         } finally {
             setLoading(false);
         }
@@ -83,7 +97,7 @@ export default function AddProductForm() {
 
     return (
         <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-brand-lilac/20 p-6 mb-8 space-y-4 animate-slideUp">
-            <h2 className="font-serif text-lg text-brand-dark mb-2">Add New Product</h2>
+            <h2 className="font-serif text-lg text-brand-dark mb-2">{initialData ? "Edit Product" : "Add New Product"}</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <InputField label="Title" name="title" value={form.title} onChange={handleChange} required />
@@ -128,7 +142,7 @@ export default function AddProductForm() {
 
             <div className="pt-2">
                 <Button type="submit" disabled={loading || uploading}>
-                    {loading ? "Creating..." : "Save Product"}
+                    {loading ? "Saving..." : (initialData ? "Update Product" : "Save Product")}
                 </Button>
             </div>
         </form>

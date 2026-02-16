@@ -1,5 +1,6 @@
 "use client";
 
+
 import { useState } from "react";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
@@ -7,6 +8,7 @@ import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { cn } from "@/lib/cn";
 import Button from "@/components/ui/Button";
 import AddProductForm from "@/components/modules/AddProductForm";
+import { deleteProduct } from "@/lib/queries";
 
 interface AdminProductsContentProps {
     products: Product[];
@@ -14,16 +16,63 @@ interface AdminProductsContentProps {
 
 export default function AdminProductsContent({ products }: AdminProductsContentProps) {
     const [showForm, setShowForm] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredProducts = products.filter(p =>
+        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const handleEdit = (product: Product) => {
+        setEditingProduct(product);
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const toggleForm = () => {
+        if (showForm) {
+            setEditingProduct(null);
+        }
+        setShowForm(!showForm);
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
+            try {
+                await deleteProduct(id);
+                alert("Product deleted successfully");
+                window.location.reload();
+            } catch (error) {
+                console.error(error);
+                alert("Failed to delete product");
+            }
+        }
+    };
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
                 <h1 className="font-serif text-2xl sm:text-3xl text-brand-dark">Products</h1>
-                <Button onClick={() => setShowForm(!showForm)}>
-                    {showForm ? "Close" : "+ Add Product"}
-                </Button>
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <input
+                        type="text"
+                        placeholder="Search products..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex-1 sm:w-64 px-4 py-2 rounded-lg border border-brand-lilac/20 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
+                    />
+                    <Button onClick={toggleForm}>
+                        {showForm ? "Close" : "+ Add Product"}
+                    </Button>
+                </div>
             </div>
-            {showForm && <AddProductForm />}
+            {showForm && (
+                <AddProductForm
+                    key={editingProduct ? editingProduct.id : "new"}
+                    initialData={editingProduct}
+                />
+            )}
 
             {/* Desktop table */}
             <div className="hidden md:block">
@@ -40,7 +89,7 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-brand-lilac/10">
-                                {products.map((p) => (
+                                {filteredProducts.map((p) => (
                                     <tr key={p.id} className={cn(p.stock <= LOW_STOCK_THRESHOLD && "bg-red-50/50")}>
                                         <td className="px-4 py-3 font-medium text-brand-dark">{p.name}</td>
                                         <td className="px-4 py-3 text-brand-dark/70">{formatCurrency(p.price)}</td>
@@ -48,11 +97,31 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
                                             <StockBadge stock={p.stock} />
                                         </td>
                                         <td className="px-4 py-3 text-brand-dark/70 capitalize">{p.category}</td>
-                                        <td className="px-4 py-3 text-right">
-                                            <button type="button" className="text-brand-purple hover:underline text-xs cursor-pointer">Edit</button>
+                                        <td className="px-4 py-3 text-right space-x-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEdit(p)}
+                                                className="text-brand-purple hover:underline text-xs cursor-pointer"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDelete(p.id)}
+                                                className="text-red-600 hover:underline text-xs cursor-pointer"
+                                            >
+                                                Delete
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
+                                {filteredProducts.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-brand-dark/50">
+                                            No products found matching "{searchQuery}"
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -61,7 +130,7 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
 
             {/* Mobile cards */}
             <div className="md:hidden space-y-3">
-                {products.map((p) => (
+                {filteredProducts.map((p) => (
                     <div
                         key={p.id}
                         className={cn(
@@ -71,7 +140,22 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
                     >
                         <div className="flex items-start justify-between gap-3 mb-2">
                             <p className="text-sm font-medium text-brand-dark">{p.name}</p>
-                            <button type="button" className="text-brand-purple hover:underline text-xs cursor-pointer shrink-0">Edit</button>
+                            <div className="flex items-center gap-3 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => handleEdit(p)}
+                                    className="text-brand-purple hover:underline text-xs cursor-pointer"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDelete(p.id)}
+                                    className="text-red-600 hover:underline text-xs cursor-pointer"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                             <span className="text-brand-dark/70">{formatCurrency(p.price)}</span>
@@ -80,6 +164,11 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
                         </div>
                     </div>
                 ))}
+                {filteredProducts.length === 0 && (
+                    <div className="text-center py-8 text-brand-dark/50 text-sm">
+                        No products found
+                    </div>
+                )}
             </div>
         </div>
     );
