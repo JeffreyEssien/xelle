@@ -1,73 +1,112 @@
 "use client";
 
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { CartItem, Product } from "@/types";
+import { validateCoupon } from "@/lib/queries";
 
 interface CartStore {
+    // ... existing types
+
     items: CartItem[];
     isOpen: boolean;
+    discount: number; // Percentage (e.g., 20 for 20%)
+    couponCode: string | null;
     open: () => void;
     close: () => void;
     toggle: () => void;
-    addItem: (product: Product, variant?: Product["variants"][0]) => void;
+    addItem: (product: Product, variant?: CartItem["variant"]) => void;
     removeItem: (productId: string, variantName?: string) => void;
     updateQuantity: (productId: string, variantName: string | undefined, quantity: number) => void;
     clearCart: () => void;
     totalItems: () => number;
+    applyCoupon: (code: string) => Promise<boolean>;
+    removeCoupon: () => void;
     subtotal: () => number;
+    total: () => number;
 }
 
-export const useCartStore = create<CartStore>((set, get) => ({
-    items: [],
-    isOpen: false,
+export const useCartStore = create<CartStore>()(
+    persist(
+        (set, get) => ({
+            items: [],
+            isOpen: false,
+            discount: 0,
+            couponCode: null,
 
-    open: () => set({ isOpen: true }),
-    close: () => set({ isOpen: false }),
-    toggle: () => set((s) => ({ isOpen: !s.isOpen })),
+            open: () => set({ isOpen: true }),
+            close: () => set({ isOpen: false }),
+            toggle: () => set((s) => ({ isOpen: !s.isOpen })),
 
-    addItem: (product, variant) =>
-        set((state) => {
-            const existing = state.items.find((i) =>
-                i.product.id === product.id &&
-                ((!i.variant && !variant) || (i.variant?.name === variant?.name))
-            );
-            if (existing) {
-                return {
-                    items: state.items.map((i) =>
-                        (i.product.id === product.id && ((!i.variant && !variant) || (i.variant?.name === variant?.name)))
-                            ? { ...i, quantity: i.quantity + 1 }
-                            : i
-                    ),
-                };
-            }
-            return { items: [...state.items, { product, variant, quantity: 1 }] };
+            addItem: (product, variant) => {
+                set((state) => {
+                    const existingItem = state.items.find(
+                        (item) => item.product.id === product.id && item.variant?.name === variant?.name
+                    );
+                    if (existingItem) {
+                        return {
+                            items: state.items.map((item) =>
+                                item.product.id === product.id && item.variant?.name === variant?.name
+                                    ? { ...item, quantity: item.quantity + 1 }
+                                    : item
+                            ),
+                        };
+                    }
+                    return { items: [...state.items, { product, variant, quantity: 1 }] };
+                });
+            },
+
+            removeItem: (productId, variantName) => {
+                set((state) => ({
+                    items: state.items.filter((item) => !(item.product.id === productId && item.variant?.name === variantName)),
+                }));
+            },
+
+            updateQuantity: (productId, variantName, quantity) => {
+                set((state) => ({
+                    items: state.items.map((item) =>
+                        item.product.id === productId && item.variant?.name === variantName
+                            ? { ...item, quantity: Math.max(0, quantity) }
+                            : item
+                    ).filter((item) => item.quantity > 0),
+                }));
+            },
+
+            clearCart: () => set({ items: [], discount: 0, couponCode: null }),
+
+            totalItems: () => get().items.reduce((s, i) => s + i.quantity, 0),
+
+            applyCoupon: async (code: string) => {
+                try {
+                    const coupon = await validateCoupon(code);
+                    if (coupon) {
+                        set({ discount: coupon.discountPercent, couponCode: coupon.code });
+                        return true;
+                    }
+                } catch (error) {
+                    console.error(error);
+                }
+                return false;
+            },
+
+            removeCoupon: () => set({ discount: 0, couponCode: null }),
+
+            subtotal: () => {
+                const { items } = get();
+                return items.reduce((total, item) => {
+                    const price = item.variant?.price || item.product.price;
+                    return total + price * item.quantity;
+                }, 0);
+            },
+
+            total: () => {
+                const sub = get().subtotal();
+                const discountAmount = sub * (get().discount / 100);
+                return Math.max(0, sub - discountAmount);
+            },
         }),
-
-    removeItem: (productId, variantName) =>
-        set((state) => ({
-            items: state.items.filter((i) =>
-                !(i.product.id === productId && (i.variant?.name === variantName || (!i.variant && !variantName)))
-            ),
-        })),
-
-    updateQuantity: (productId, variantName, quantity) =>
-        set((state) => ({
-            items:
-                quantity <= 0
-                    ? state.items.filter((i) =>
-                        !(i.product.id === productId && (i.variant?.name === variantName || (!i.variant && !variantName)))
-                    )
-                    : state.items.map((i) =>
-                        (i.product.id === productId && (i.variant?.name === variantName || (!i.variant && !variantName)))
-                            ? { ...i, quantity }
-                            : i
-                    ),
-        })),
-
-    clearCart: () => set({ items: [] }),
-    totalItems: () => get().items.reduce((s, i) => s + i.quantity, 0),
-    subtotal: () => get().items.reduce((s, i) => {
-        const price = i.variant?.price || i.product.price;
-        return s + price * i.quantity;
-    }, 0),
-}));
+        {
+            name: "cart-storage",
+        }
+    )
+);

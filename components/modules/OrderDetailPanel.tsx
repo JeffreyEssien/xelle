@@ -1,6 +1,10 @@
+import { useState } from "react";
+import Link from "next/link";
 import type { Order } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
+import { updateOrderStatus, updateOrderNotes } from "@/lib/queries";
 import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 
 const statusVariant: Record<Order["status"], "warning" | "info" | "success"> = {
     pending: "warning",
@@ -11,10 +15,40 @@ const statusVariant: Record<Order["status"], "warning" | "info" | "success"> = {
 interface OrderDetailPanelProps {
     order: Order;
     onClose: () => void;
+    onUpdate?: () => void; // Callback to refresh data
 }
 
-export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelProps) {
+export default function OrderDetailPanel({ order, onClose, onUpdate }: OrderDetailPanelProps) {
     const addr = order.shippingAddress;
+    const [notes, setNotes] = useState(order.notes || "");
+    const [isSavingNotes, setIsSavingNotes] = useState(false);
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    const handleStatusUpdate = async (status: Order["status"]) => {
+        if (!confirm(`Mark order as ${status}?`)) return;
+        setIsUpdatingStatus(true);
+        try {
+            await updateOrderStatus(order.id, status);
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            alert("Failed to update status");
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const handleSaveNotes = async () => {
+        setIsSavingNotes(true);
+        try {
+            await updateOrderNotes(order.id, notes);
+            alert("Notes saved");
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            alert("Failed to save notes");
+        } finally {
+            setIsSavingNotes(false);
+        }
+    };
 
     return (
         <>
@@ -24,14 +58,58 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
             {/* Panel: full-screen modal on mobile, sticky sidebar on desktop */}
             <div className="fixed inset-0 z-50 overflow-y-auto xl:relative xl:inset-auto xl:z-auto">
                 <div className="min-h-full flex items-end xl:items-start xl:min-h-0">
-                    <div className="w-full bg-white rounded-t-2xl xl:rounded-t-none xl:rounded-lg border border-brand-lilac/20 p-5 sm:p-6 space-y-5 sm:space-y-6 xl:sticky xl:top-24 animate-slideUp xl:animate-none">
+                    <div className="w-full bg-white rounded-t-2xl xl:rounded-t-none xl:rounded-lg border border-brand-lilac/20 p-5 sm:p-6 space-y-5 sm:space-y-6 xl:sticky xl:top-24 animate-slideUp xl:animate-none shadow-xl xl:shadow-none">
                         <div className="flex items-center justify-between">
-                            <h2 className="font-serif text-lg text-brand-dark">{order.id}</h2>
-                            <button type="button" onClick={onClose} className="text-brand-dark/40 hover:text-brand-dark cursor-pointer p-1 -mr-1">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+                            <h2 className="font-serif text-lg text-brand-dark">{order.id.slice(0, 8)}...</h2>
+                            <div className="flex gap-2">
+                                <Link
+                                    href={`/admin/orders/${order.id}/print`}
+                                    target="_blank"
+                                    className="text-xs font-medium text-brand-purple hover:underline flex items-center gap-1"
+                                >
+                                    <span>🖨️ Print</span>
+                                </Link>
+                                <button type="button" onClick={onClose} className="text-brand-dark/40 hover:text-brand-dark cursor-pointer p-1">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="grid grid-cols-2 gap-3">
+                            {order.status === "pending" && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate("shipped")}
+                                    disabled={isUpdatingStatus}
+                                >
+                                    Mark Shipped
+                                </Button>
+                            )}
+                            {order.status === "shipped" && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate("delivered")}
+                                    disabled={isUpdatingStatus}
+                                >
+                                    Mark Delivered
+                                </Button>
+                            )}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
+                                onClick={() => {
+                                    if (confirm("Are you sure you want to cancel this order?")) {
+                                        // TODO: Implement cancel logic (maybe just a status?)
+                                        alert("Cancel logic not yet implemented in DB");
+                                    }
+                                }}
+                            >
+                                Cancel Order
+                            </Button>
                         </div>
 
                         <Section title="Status">
@@ -39,6 +117,25 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
                             <p className="text-xs text-brand-dark/50 mt-1">
                                 Placed on {new Date(order.createdAt).toLocaleString()}
                             </p>
+                        </Section>
+
+                        <Section title="Internal Notes">
+                            <textarea
+                                className="w-full text-sm p-3 border border-brand-lilac/20 rounded-md bg-neutral-50 focus:bg-white focus:outline-none focus:border-brand-purple focus:ring-1 focus:ring-brand-purple transition-all"
+                                rows={3}
+                                placeholder="Add private notes here..."
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                            />
+                            <div className="flex justify-end mt-2">
+                                <button
+                                    onClick={handleSaveNotes}
+                                    disabled={isSavingNotes || notes === order.notes}
+                                    className="text-xs font-medium text-brand-purple hover:text-brand-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSavingNotes ? "Saving..." : "Save Note"}
+                                </button>
+                            </div>
                         </Section>
 
                         <Section title="Customer">
@@ -57,12 +154,14 @@ export default function OrderDetailPanel({ order, onClose }: OrderDetailPanelPro
                             <Section title="Items">
                                 <ul className="space-y-2">
                                     {order.items.map((item) => (
-                                        <li key={item.product.id} className="flex justify-between text-sm gap-2">
+                                        <li key={`${item.product.id}-${item.variant?.name}`} className="flex justify-between text-sm gap-2">
                                             <span className="text-brand-dark/80 min-w-0 truncate">
-                                                {item.product.name} <span className="text-brand-dark/40">×{item.quantity}</span>
+                                                {item.product.name}
+                                                {item.variant && <span className="text-brand-dark/60 ml-1">({item.variant.name})</span>}
+                                                <span className="text-brand-dark/40 ml-1">×{item.quantity}</span>
                                             </span>
                                             <span className="text-brand-dark font-medium shrink-0">
-                                                {formatCurrency(item.product.price * item.quantity)}
+                                                {formatCurrency((item.variant?.price || item.product.price) * item.quantity)}
                                             </span>
                                         </li>
                                     ))}

@@ -5,6 +5,7 @@ import type { Product } from "@/types";
 import Button from "@/components/ui/Button";
 import { uploadProductImage } from "@/lib/uploadImage";
 import { createProduct, updateProduct } from "@/lib/queries";
+import RichTextEditor from "@/components/modules/RichTextEditor";
 
 export default function AddProductForm({ initialData }: { initialData?: Product | null }) {
     const [loading, setLoading] = useState(false);
@@ -110,7 +111,13 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                 <SelectField label="Category" name="category" value={form.category} onChange={handleChange} required />
             </div>
 
-            <TextAreaField label="Description" name="description" value={form.description} onChange={handleChange} required />
+            <div>
+                <label className="block text-sm font-medium text-brand-dark mb-1">Description</label>
+                <RichTextEditor
+                    value={form.description}
+                    onChange={(content: string) => setForm((prev) => ({ ...prev, description: content }))}
+                />
+            </div>
 
             {/* Variants Section */}
             <div className="space-y-3 border-t border-brand-lilac/20 pt-4">
@@ -215,22 +222,6 @@ function InputField({ label, name, type = "text", value, onChange, required }: {
             <label htmlFor={name} className="block text-xs text-brand-dark/60 mb-1">{label}</label>
             <input
                 id={name} name={name} type={type} value={value} onChange={onChange} required={required}
-                className="w-full border border-brand-lilac/20 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
-            />
-        </div>
-    );
-}
-
-function TextAreaField({ label, name, value, onChange, required }: {
-    label: string; name: string; value: string;
-    onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-    required?: boolean;
-}) {
-    return (
-        <div>
-            <label htmlFor={name} className="block text-xs text-brand-dark/60 mb-1">{label}</label>
-            <textarea
-                id={name} name={name} rows={3} value={value} onChange={onChange} required={required}
                 className="w-full border border-brand-lilac/20 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
             />
         </div>

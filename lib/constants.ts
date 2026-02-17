@@ -14,5 +14,8 @@ export const NAV_LINKS = [
 export const ADMIN_NAV_LINKS = [
     { label: "Dashboard", href: "/admin", icon: "grid" },
     { label: "Products", href: "/admin/products", icon: "package" },
+    { label: "Categories", href: "/admin/categories", icon: "tag" },
     { label: "Orders", href: "/admin/orders", icon: "clipboard" },
+    { label: "Coupons", href: "/admin/coupons", icon: "ticket" },
+    { label: "Settings", href: "/admin/settings", icon: "cog" },
 ] as const;

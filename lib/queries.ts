@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import type { Product, Category, Order } from "@/types";
+import type { Product, Category, Order, SiteSettings, Coupon } from "@/types";
 
 interface DbProduct {
     id: string;
@@ -29,6 +29,7 @@ interface DbOrder {
     status: Order["status"];
     shipping_address: Order["shippingAddress"];
     created_at: string;
+    notes?: string;
 }
 
 function toProduct(row: DbProduct): Product {
@@ -61,7 +62,32 @@ function toOrder(row: DbOrder): Order {
         status: row.status,
         shippingAddress: row.shipping_address,
         createdAt: row.created_at,
+        notes: row.notes,
     };
+}
+
+// ... existing getProducts ...
+
+export async function updateOrderStatus(id: string, status: Order["status"]): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase
+        .from("orders")
+        .update({ status })
+        .eq("id", id);
+    if (error) throw error;
+}
+
+export async function updateOrderNotes(id: string, notes: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase
+        .from("orders")
+        .update({ notes })
+        .eq("id", id);
+    if (error) throw error;
 }
 
 export async function getProducts(): Promise<Product[]> {
@@ -128,6 +154,38 @@ export async function getCategories(): Promise<Category[]> {
         .order("name");
     if (error) throw error;
     return data as Category[];
+}
+
+export async function createCategory(category: Omit<Category, "id">): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("categories").insert({
+        name: category.name,
+        slug: category.slug,
+        image: category.image,
+        description: category.description,
+    });
+    if (error) throw error;
+}
+
+export async function updateCategory(id: string, category: Partial<Category>): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase
+        .from("categories")
+        .update(category)
+        .eq("id", id);
+    if (error) throw error;
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if (error) throw error;
 }
 
 export async function getOrders(): Promise<Order[]> {
@@ -226,4 +284,130 @@ export async function deleteProduct(id: string): Promise<void> {
 
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (error) throw error;
+}
+
+export async function getSiteSettings(): Promise<SiteSettings | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    // We expect a single row with id=true
+    const { data, error } = await supabase
+        .from("site_settings")
+        .select("*")
+        .eq("id", true)
+        .single();
+
+    if (error) {
+        // If table doesn't exist or is empty, return default/null
+        return null;
+    }
+
+    return {
+        id: data.id,
+        siteName: data.site_name,
+        logoUrl: data.logo_url,
+        heroHeading: data.hero_heading,
+        heroSubheading: data.hero_subheading,
+        heroImage: data.hero_image,
+        heroCtaText: data.hero_cta_text,
+        heroCtaLink: data.hero_cta_link,
+    };
+}
+
+export async function updateSiteSettings(settings: Partial<SiteSettings>): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const dbSettings: any = {};
+    if (settings.siteName !== undefined) dbSettings.site_name = settings.siteName;
+    if (settings.logoUrl !== undefined) dbSettings.logo_url = settings.logoUrl;
+    if (settings.heroHeading !== undefined) dbSettings.hero_heading = settings.heroHeading;
+    if (settings.heroSubheading !== undefined) dbSettings.hero_subheading = settings.heroSubheading;
+    if (settings.heroImage !== undefined) dbSettings.hero_image = settings.heroImage;
+    if (settings.heroCtaText !== undefined) dbSettings.hero_cta_text = settings.heroCtaText;
+    if (settings.heroCtaLink !== undefined) dbSettings.hero_cta_link = settings.heroCtaLink;
+
+    // init if not exists, otherwise update
+    const { error } = await supabase
+        .from("site_settings")
+        .upsert({ id: true, ...dbSettings });
+
+    if (error) throw error;
+}
+
+/* ── Coupons ── */
+
+export async function getCoupons(): Promise<Coupon[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("coupons")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching coupons:", error);
+        return [];
+    }
+
+    return data.map((c) => ({
+        id: c.id,
+        code: c.code,
+        discountPercent: c.discount_percent,
+        isActive: c.is_active,
+        usageCount: c.usage_count,
+        createdAt: c.created_at,
+    }));
+}
+
+export async function createCoupon(coupon: { code: string; discountPercent: number; isActive: boolean }): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("coupons").insert({
+        code: coupon.code.toUpperCase(),
+        discount_percent: coupon.discountPercent,
+        is_active: coupon.isActive,
+    });
+    if (error) throw error;
+}
+
+export async function deleteCoupon(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("coupons").delete().eq("id", id);
+    if (error) throw error;
+}
+
+export async function toggleCouponStatus(id: string, isActive: boolean): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("coupons").update({ is_active: isActive }).eq("id", id);
+    if (error) throw error;
+}
+
+export async function validateCoupon(code: string): Promise<Coupon | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from("coupons")
+        .select("*")
+        .eq("code", code.toUpperCase())
+        .eq("is_active", true)
+        .single();
+
+    if (error || !data) return null;
+
+    return {
+        id: data.id,
+        code: data.code,
+        discountPercent: data.discount_percent,
+        isActive: data.is_active,
+        usageCount: data.usage_count,
+        createdAt: data.created_at,
+    };
 }

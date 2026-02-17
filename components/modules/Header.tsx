@@ -1,22 +1,44 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { NAV_LINKS, SITE_NAME } from "@/lib/constants";
 import { useCartStore } from "@/lib/cartStore";
 import CartDrawer from "@/components/modules/CartDrawer";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getSiteSettings } from "@/lib/queries";
+import type { SiteSettings } from "@/types";
 
 export default function Header() {
     const { totalItems, toggle } = useCartStore();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [settings, setSettings] = useState<SiteSettings | null>(null);
     const count = totalItems();
+
+    useEffect(() => {
+        getSiteSettings().then(setSettings).catch(() => { });
+    }, []);
+
+    const displayName = settings?.siteName || SITE_NAME;
 
     return (
         <>
             <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-brand-lilac/20">
                 <nav className="mx-auto max-w-7xl px-6 flex items-center justify-between h-16">
-                    <Link href="/" className="font-serif text-2xl tracking-widest text-brand-dark">
-                        {SITE_NAME}
+                    <Link href="/" className="font-serif text-2xl tracking-widest text-brand-dark flex items-center gap-2">
+                        {settings?.logoUrl ? (
+                            <div className="relative h-8 w-auto aspect-[3/1]">
+                                <Image
+                                    src={settings.logoUrl}
+                                    alt={displayName}
+                                    fill
+                                    className="object-contain object-left"
+                                    sizes="120px"
+                                />
+                            </div>
+                        ) : (
+                            displayName
+                        )}
                     </Link>
                     <DesktopNav />
                     <div className="flex items-center gap-4">

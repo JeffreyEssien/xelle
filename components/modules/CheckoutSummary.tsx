@@ -4,11 +4,15 @@ import Image from "next/image";
 import { useCartStore } from "@/lib/cartStore";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
+import CouponInput from "@/components/modules/CouponInput";
 
 export default function CheckoutSummary() {
-    const { items, subtotal } = useCartStore();
+    const { items, subtotal, discount } = useCartStore();
     const sub = subtotal();
     const shipping = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
+
+    const discountAmount = sub * (discount / 100);
+    const total = Math.max(0, sub - discountAmount + shipping);
 
     return (
         <div className="bg-brand-lilac/5 rounded-lg p-6 sticky top-24">
@@ -24,13 +28,24 @@ export default function CheckoutSummary() {
                             <p className="text-xs text-brand-dark/50">Qty: {item.quantity}</p>
                         </div>
                         <p className="text-sm text-brand-dark font-medium shrink-0">
-                            {formatCurrency(item.product.price * item.quantity)}
+                            {formatCurrency((item.variant?.price || item.product.price) * item.quantity)}
                         </p>
                     </li>
                 ))}
             </ul>
+
+            <div className="mb-6">
+                <CouponInput />
+            </div>
+
             <div className="border-t border-brand-lilac/20 pt-4 space-y-2">
                 <Row label="Subtotal" value={formatCurrency(sub)} />
+                {discount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount</span>
+                        <span>-{formatCurrency(discountAmount)}</span>
+                    </div>
+                )}
                 <Row label="Shipping" value={shipping === 0 ? "Free" : formatCurrency(shipping)} />
                 {shipping > 0 && (
                     <p className="text-xs text-brand-dark/40">
@@ -41,7 +56,7 @@ export default function CheckoutSummary() {
             <div className="border-t border-brand-lilac/20 mt-4 pt-4">
                 <div className="flex justify-between font-medium text-brand-dark text-lg">
                     <span>Total</span>
-                    <span>{formatCurrency(sub + shipping)}</span>
+                    <span>{formatCurrency(total)}</span>
                 </div>
             </div>
         </div>

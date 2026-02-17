@@ -58,6 +58,27 @@ export interface Order {
     status: "pending" | "shipped" | "delivered";
     createdAt: string;
     shippingAddress: ShippingAddress;
+    notes?: string;
+}
+
+export interface SiteSettings {
+    id: boolean;
+    siteName: string;
+    logoUrl?: string;
+    heroHeading?: string;
+    heroSubheading?: string;
+    heroImage?: string;
+    heroCtaText?: string;
+    heroCtaLink?: string;
+}
+
+export interface Coupon {
+    id: string;
+    code: string;
+    discountPercent: number;
+    isActive: boolean;
+    usageCount: number;
+    createdAt: string;
 }
 
 export interface FilterState {
