@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { useCartStore } from "@/lib/cartStore";
@@ -12,9 +13,15 @@ interface ProductDetailsProps {
 
 export default function ProductDetails({ product }: ProductDetailsProps) {
     const { addItem, open } = useCartStore();
+    const [selectedVariant, setSelectedVariant] = useState<Product["variants"][0] | undefined>(
+        product.variants && product.variants.length > 0 ? product.variants[0] : undefined
+    );
+
+    const currentPrice = selectedVariant?.price || product.price;
+    const currentStock = selectedVariant?.stock !== undefined ? selectedVariant.stock : product.stock;
 
     const handleAdd = () => {
-        addItem(product);
+        addItem(product, selectedVariant);
         open();
     };
 
@@ -22,13 +29,34 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
         <div className="flex flex-col justify-center">
             <p className="text-xs uppercase tracking-[0.2em] text-brand-purple mb-2">{product.category}</p>
             <h1 className="font-serif text-3xl md:text-4xl text-brand-dark mb-4">{product.name}</h1>
-            <p className="font-sans text-2xl text-brand-dark mb-6">{formatCurrency(product.price)}</p>
+            <p className="font-sans text-2xl text-brand-dark mb-6">{formatCurrency(currentPrice)}</p>
             <p className="text-brand-dark/60 leading-relaxed mb-6">{product.description}</p>
+
+            {product.variants && product.variants.length > 0 && (
+                <div className="mb-6">
+                    <label className="block text-sm font-medium text-brand-dark mb-2">Options</label>
+                    <div className="flex flex-wrap gap-2">
+                        {product.variants.map((v) => (
+                            <button
+                                key={v.name}
+                                onClick={() => setSelectedVariant(v)}
+                                className={`px-4 py-2 border rounded-sm text-sm transition-all ${selectedVariant?.name === v.name
+                                    ? "border-brand-purple bg-brand-purple text-white"
+                                    : "border-brand-lilac/30 hover:border-brand-purple/50"
+                                    }`}
+                            >
+                                {v.name}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             <div className="mb-8">
-                <StockIndicator stock={product.stock} />
+                <StockIndicator stock={currentStock} />
             </div>
-            <Button size="lg" onClick={handleAdd} disabled={product.stock === 0} className="w-full sm:w-auto">
-                {product.stock === 0 ? "Sold Out" : "Add to Cart"}
+            <Button size="lg" onClick={handleAdd} disabled={currentStock === 0} className="w-full sm:w-auto">
+                {currentStock === 0 ? "Sold Out" : "Add to Cart"}
             </Button>
             <div className="mt-10 pt-6 border-t border-brand-lilac/20 space-y-3">
                 <DetailRow label="Brand" value={product.brand} />

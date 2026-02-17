@@ -19,6 +19,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
         stock: initialData?.stock.toString() || "",
         category: initialData?.category || "",
     });
+    const [variants, setVariants] = useState<Product["variants"]>(initialData?.variants || []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -61,6 +62,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                     stock: parseInt(form.stock),
                     category: form.category,
                     images: imageUrls,
+                    variants: variants,
                 });
                 alert("Product updated successfully!");
             } else {
@@ -71,6 +73,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                     stock: parseInt(form.stock),
                     category: form.category,
                     images: imageUrls,
+                    variants: variants,
                 });
                 alert("Product created successfully!");
             }
@@ -85,6 +88,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                 });
                 setImages([]);
                 setImageUrls([]);
+                setVariants([]);
             }
             window.location.reload(); // Refresh to show new product
         } catch (error: any) {
@@ -107,6 +111,58 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
             </div>
 
             <TextAreaField label="Description" name="description" value={form.description} onChange={handleChange} required />
+
+            {/* Variants Section */}
+            <div className="space-y-3 border-t border-brand-lilac/20 pt-4">
+                <div className="flex justify-between items-center">
+                    <label className="block text-sm font-medium text-brand-dark">Variants (Optional)</label>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setVariants([...variants, { name: "", stock: 0 }])}
+                    >
+                        + Add Variant
+                    </Button>
+                </div>
+                {variants.map((variant, idx) => (
+                    <div key={idx} className="flex gap-2 items-end bg-brand-lilac/5 p-3 rounded-md">
+                        <div className="flex-1">
+                            <label className="text-xs text-brand-dark/60">Name (e.g. Red, XL)</label>
+                            <input
+                                type="text"
+                                value={variant.name}
+                                onChange={(e) => {
+                                    const newVariants = [...variants];
+                                    newVariants[idx].name = e.target.value;
+                                    setVariants(newVariants);
+                                }}
+                                className="w-full border border-brand-lilac/20 rounded-md px-2 py-1 text-sm"
+                                placeholder="Variant Name"
+                            />
+                        </div>
+                        <div className="w-24">
+                            <label className="text-xs text-brand-dark/60">Stock</label>
+                            <input
+                                type="number"
+                                value={variant.stock || 0}
+                                onChange={(e) => {
+                                    const newVariants = [...variants];
+                                    newVariants[idx].stock = parseInt(e.target.value) || 0;
+                                    setVariants(newVariants);
+                                }}
+                                className="w-full border border-brand-lilac/20 rounded-md px-2 py-1 text-sm"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setVariants(variants.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700 text-xs pb-2"
+                        >
+                            Remove
+                        </button>
+                    </div>
+                ))}
+            </div>
 
             {/* Image Upload Area */}
             <div className="space-y-3">

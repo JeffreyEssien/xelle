@@ -1,3 +1,10 @@
+export interface ProductVariant {
+    name: string;
+    price?: number;
+    stock?: number;
+    image?: string;
+}
+
 export interface Product {
     id: string;
     slug: string;
@@ -8,6 +15,7 @@ export interface Product {
     brand: string;
     stock: number;
     images: string[];
+    variants: ProductVariant[];
     isFeatured: boolean;
     isNew: boolean;
 }
@@ -22,6 +30,7 @@ export interface Category {
 
 export interface CartItem {
     product: Product;
+    variant?: ProductVariant;
     quantity: number;
 }
 

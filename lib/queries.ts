@@ -11,6 +11,7 @@ interface DbProduct {
     brand: string;
     stock: number;
     images: string[];
+    variants: Product["variants"]; // JSONB
     is_featured: boolean;
     is_new: boolean;
     created_at: string;
@@ -41,6 +42,7 @@ function toProduct(row: DbProduct): Product {
         brand: row.brand,
         stock: row.stock,
         images: row.images,
+        variants: row.variants || [],
         isFeatured: row.is_featured,
         isNew: row.is_new,
     };
@@ -165,6 +167,7 @@ export interface CreateProductInput {
     stock: number;
     category: string;
     images: string[];
+    variants: Product["variants"];
 }
 
 export async function createProduct(input: CreateProductInput): Promise<void> {
@@ -185,6 +188,7 @@ export async function createProduct(input: CreateProductInput): Promise<void> {
         brand: "",
         stock: input.stock,
         images: input.images,
+        variants: input.variants,
         is_featured: false,
         is_new: true,
     });
@@ -209,6 +213,7 @@ export async function updateProduct(id: string, input: CreateProductInput): Prom
             category: input.category,
             stock: input.stock,
             images: input.images,
+            variants: input.variants,
         })
         .eq("id", id);
 

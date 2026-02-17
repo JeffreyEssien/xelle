@@ -69,18 +69,19 @@ function CartItems() {
     return (
         <ul className="divide-y divide-brand-lilac/10">
             {items.map((item) => (
-                <li key={item.product.id} className="py-4 flex gap-4">
+                <li key={`${item.product.id}-${item.variant?.name || "default"}`} className="py-4 flex gap-4">
                     <div className="relative h-20 w-16 rounded-sm overflow-hidden bg-neutral-100 shrink-0">
-                        <Image src={item.product.images[0]} alt={item.product.name} fill className="object-cover" sizes="64px" />
+                        <Image src={item.variant?.image || item.product.images[0]} alt={item.product.name} fill className="object-cover" sizes="64px" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-brand-dark truncate">{item.product.name}</p>
-                        <p className="text-sm text-brand-dark/60">{formatCurrency(item.product.price)}</p>
+                        {item.variant && <p className="text-xs text-brand-dark/60">Variant: {item.variant.name}</p>}
+                        <p className="text-sm text-brand-dark/60">{formatCurrency(item.variant?.price || item.product.price)}</p>
                         <div className="flex items-center gap-2 mt-2">
-                            <button type="button" onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="w-6 h-6 rounded border border-brand-lilac/30 text-xs cursor-pointer">−</button>
+                            <button type="button" onClick={() => updateQuantity(item.product.id, item.variant?.name, item.quantity - 1)} className="w-6 h-6 rounded border border-brand-lilac/30 text-xs cursor-pointer">−</button>
                             <span className="text-sm w-6 text-center">{item.quantity}</span>
-                            <button type="button" onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="w-6 h-6 rounded border border-brand-lilac/30 text-xs cursor-pointer">+</button>
-                            <button type="button" onClick={() => removeItem(item.product.id)} className="ml-auto text-xs text-red-500 hover:underline cursor-pointer">Remove</button>
+                            <button type="button" onClick={() => updateQuantity(item.product.id, item.variant?.name, item.quantity + 1)} className="w-6 h-6 rounded border border-brand-lilac/30 text-xs cursor-pointer">+</button>
+                            <button type="button" onClick={() => removeItem(item.product.id, item.variant?.name)} className="ml-auto text-xs text-red-500 hover:underline cursor-pointer">Remove</button>
                         </div>
                     </div>
                 </li>
