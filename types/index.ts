@@ -5,6 +5,19 @@ export interface ProductVariant {
     image?: string;
 }
 
+export interface InventoryItem {
+    id: string;
+    sku: string;
+    name: string;
+    costPrice: number;
+    sellingPrice: number;
+    stock: number;
+    reorderLevel: number;
+    supplier?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Product {
     id: string;
     slug: string;
@@ -13,7 +26,8 @@ export interface Product {
     price: number;
     category: string;
     brand: string;
-    stock: number;
+    inventoryId?: string; // Optional during migration
+    stock: number; // Mapped from InventoryItem in queries
     images: string[];
     variants: ProductVariant[];
     isFeatured: boolean;
@@ -86,4 +100,32 @@ export interface FilterState {
     priceRange: [number, number];
     brand: string;
     sortBy: "price-asc" | "price-desc" | "name" | "newest";
+}
+
+export interface Profile {
+    id: string;
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+    role: "customer" | "admin";
+    createdAt: string;
+}
+
+export interface Page {
+    id: string;
+    slug: string;
+    title: string;
+    content: any; // TipTap JSON or HTML
+    isPublished: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface InventoryLog {
+    id: string;
+    productId: string;
+    productName?: string;
+    changeAmount: number;
+    reason: string;
+    createdAt: string;
 }

@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
-import type { Product, Category, Order, SiteSettings, Coupon } from "@/types";
+import type { Product, Category, Order, SiteSettings, Coupon, Profile, InventoryLog, Page, InventoryItem } from "@/types";
 
 interface DbProduct {
     id: string;
@@ -95,10 +95,13 @@ export async function getProducts(): Promise<Product[]> {
     if (!supabase) return [];
     const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, inventory:inventory_items(stock)")
         .order("created_at", { ascending: false });
     if (error) throw error;
-    return (data as DbProduct[]).map(toProduct);
+    return (data as any[]).map(row => ({
+        ...toProduct(row),
+        stock: row.inventory?.stock ?? row.stock // Fallback to local stock if valid, but prefer inventory
+    }));
 }
 
 export async function getFeaturedProducts(): Promise<Product[]> {
@@ -130,11 +133,13 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     if (!supabase) return null;
     const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, inventory:inventory_items(stock)")
         .eq("slug", slug)
         .single();
     if (error) return null;
-    return toProduct(data as DbProduct);
+    const prod = toProduct(data as DbProduct);
+    prod.stock = (data as any).inventory?.stock ?? prod.stock;
+    return prod;
 }
 
 export async function getProductSlugs(): Promise<string[]> {
@@ -226,6 +231,7 @@ export interface CreateProductInput {
     category: string;
     images: string[];
     variants: Product["variants"];
+    inventoryId?: string; // Link to inventory source
 }
 
 export async function createProduct(input: CreateProductInput): Promise<void> {
@@ -249,6 +255,7 @@ export async function createProduct(input: CreateProductInput): Promise<void> {
         variants: input.variants,
         is_featured: false,
         is_new: true,
+        inventory_item_id: input.inventoryId, // Save the link
     });
     if (error) throw error;
 }
@@ -273,6 +280,18 @@ export async function updateProduct(id: string, input: CreateProductInput): Prom
             images: input.images,
             variants: input.variants,
         })
+        .eq("id", id);
+
+    if (error) throw error;
+}
+
+export async function updateProductStock(id: string, newStock: number): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase
+        .from("products")
+        .update({ stock: newStock })
         .eq("id", id);
 
     if (error) throw error;
@@ -410,4 +429,243 @@ export async function validateCoupon(code: string): Promise<Coupon | null> {
         usageCount: data.usage_count,
         createdAt: data.created_at,
     };
+}
+
+/* ── Customers ── */
+
+export async function getCustomers(): Promise<Profile[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching customers:", JSON.stringify(error, null, 2));
+        return [];
+    }
+
+    return data.map((p) => ({
+        id: p.id,
+        email: p.email,
+        fullName: p.full_name,
+        avatarUrl: p.avatar_url,
+        role: p.role,
+        createdAt: p.created_at,
+    }));
+}
+
+/* ── Inventory Logs ── */
+
+export async function getInventoryLogs(): Promise<InventoryLog[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("inventory_logs")
+        .select("*, product:products(name)")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching inventory logs:", JSON.stringify(error, null, 2));
+        return [];
+    }
+
+    return data.map((log: any) => ({
+        id: log.id,
+        productId: log.product_id,
+        productName: log.product?.name || "Unknown Product",
+        changeAmount: log.change_amount,
+        reason: log.reason,
+        createdAt: log.created_at,
+    }));
+}
+
+export async function logInventoryChange(productId: string, changeAmount: number, reason: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return;
+
+    await supabase.from("inventory_logs").insert({
+        product_id: productId,
+        change_amount: changeAmount,
+        reason,
+    });
+}
+
+/* ── Inventory Items (New) ── */
+
+export async function getInventoryItems(): Promise<InventoryItem[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("inventory_items")
+        .select("*")
+        .order("name");
+
+    if (error) {
+        console.error("Error fetching inventory items:", error);
+        return [];
+    }
+
+    return data.map(item => ({
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        costPrice: Number(item.cost_price),
+        sellingPrice: Number(item.selling_price),
+        stock: item.stock,
+        reorderLevel: item.reorder_level,
+        supplier: item.supplier,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+    }));
+}
+
+export async function updateInventoryItem(id: string, updates: Partial<InventoryItem>): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.costPrice !== undefined) dbUpdates.cost_price = updates.costPrice;
+    if (updates.sellingPrice !== undefined) dbUpdates.selling_price = updates.sellingPrice;
+    if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
+    if (updates.reorderLevel !== undefined) dbUpdates.reorder_level = updates.reorderLevel;
+    if (updates.supplier !== undefined) dbUpdates.supplier = updates.supplier;
+
+    const { error } = await supabase
+        .from("inventory_items")
+        .update(dbUpdates)
+        .eq("id", id);
+    if (error) throw error;
+}
+
+export async function createInventoryItem(item: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">): Promise<string> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { data, error } = await supabase.from("inventory_items").insert({
+        sku: item.sku,
+        name: item.name,
+        cost_price: item.costPrice,
+        selling_price: item.sellingPrice,
+        stock: item.stock,
+        reorder_level: item.reorderLevel,
+        supplier: item.supplier,
+    }).select("id").single();
+
+    if (error) throw error;
+    return data.id;
+}
+
+/* ── CMS / Pages ── */
+
+export async function getPages(): Promise<Page[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("pages")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+    if (error) return [];
+
+    return data.map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        title: p.title,
+        content: p.content,
+        isPublished: p.is_published,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+    }));
+}
+
+export async function getPageBySlug(slug: string): Promise<Page | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from("pages")
+        .select("*")
+        .eq("slug", slug)
+        .eq("is_published", true)
+        .single();
+
+    if (error || !data) return null;
+
+    return {
+        id: data.id,
+        slug: data.slug,
+        title: data.title,
+        content: data.content,
+        isPublished: data.is_published,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+    };
+}
+
+export async function getPageById(id: string): Promise<Page | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from("pages")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+    if (error || !data) return null;
+
+    return {
+        id: data.id,
+        slug: data.slug,
+        title: data.title,
+        content: data.content,
+        isPublished: data.is_published,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+    };
+}
+
+export async function createPage(page: Omit<Page, "id" | "createdAt" | "updatedAt">): Promise<string> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { data, error } = await supabase.from("pages").insert({
+        slug: page.slug,
+        title: page.title,
+        content: page.content,
+        is_published: page.isPublished,
+    }).select("id").single();
+
+    if (error) throw error;
+    return data.id;
+}
+
+export async function updatePage(id: string, page: Partial<Page>): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (page.slug !== undefined) updates.slug = page.slug;
+    if (page.title !== undefined) updates.title = page.title;
+    if (page.content !== undefined) updates.content = page.content;
+    if (page.isPublished !== undefined) updates.is_published = page.isPublished;
+
+    const { error } = await supabase.from("pages").update(updates).eq("id", id);
+    if (error) throw error;
+}
+
+export async function deletePage(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("pages").delete().eq("id", id);
+    if (error) throw error;
 }

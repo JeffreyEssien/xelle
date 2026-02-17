@@ -23,11 +23,18 @@ export default function AdminOrdersContent({ initialOrders }: AdminOrdersContent
     const router = useRouter();
     const [orderList, setOrderList] = useState<Order[]>(initialOrders);
     const [selected, setSelected] = useState<Order | null>(null);
+    const [search, setSearch] = useState("");
 
     // Sync state with props when router.refresh() fetches new data
     useEffect(() => {
         setOrderList(initialOrders);
     }, [initialOrders]);
+
+    const filteredOrders = orderList.filter(o =>
+        o.customerName.toLowerCase().includes(search.toLowerCase()) ||
+        o.email.toLowerCase().includes(search.toLowerCase()) ||
+        o.id.toLowerCase().includes(search.toLowerCase())
+    );
 
     const handleRefresh = () => {
         router.refresh();
@@ -98,16 +105,25 @@ export default function AdminOrdersContent({ initialOrders }: AdminOrdersContent
 
     return (
         <div>
-            <h1 className="font-serif text-2xl sm:text-3xl text-brand-dark mb-6 sm:mb-8">Orders</h1>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+                <h1 className="font-serif text-2xl sm:text-3xl text-brand-dark">Orders</h1>
+                <input
+                    type="text"
+                    placeholder="Search by ID, name, or email..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="px-4 py-2 border border-brand-lilac/30 rounded-sm focus:outline-none focus:border-brand-purple w-full sm:w-80"
+                />
+            </div>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 <div className={selected ? "xl:col-span-2" : "xl:col-span-3"}>
                     {/* Desktop table */}
                     <div className="hidden md:block">
-                        <OrderTable orders={orderList} onStatusChange={updateStatus} onSelect={setSelected} selectedId={selected?.id} />
+                        <OrderTable orders={filteredOrders} onStatusChange={updateStatus} onSelect={setSelected} selectedId={selected?.id} />
                     </div>
                     {/* Mobile cards */}
                     <div className="md:hidden space-y-3">
-                        {orderList.map((o) => (
+                        {filteredOrders.map((o) => (
                             <OrderCard key={o.id} order={o} onStatusChange={updateStatus} onSelect={setSelected} isSelected={selected?.id === o.id} />
                         ))}
                     </div>

@@ -131,6 +131,17 @@ function NavLinks({ pathname }: { pathname: string }) {
 }
 
 function NavIcon({ name }: { name: string }) {
-    const iconMap: Record<string, string> = { grid: "▦", package: "☐", clipboard: "📋", tag: "🏷️" };
+    const iconMap: Record<string, string> = {
+        grid: "▦",
+        package: "☐",
+        clipboard: "📋",
+        tag: "🏷️",
+        users: "👥",
+        chart: "📊",
+        file: "📄",
+        box: "📦",
+        ticket: "🎫",
+        cog: "⚙️"
+    };
     return <span className="text-base">{iconMap[name] || "•"}</span>;
 }

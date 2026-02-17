@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { Category } from "@/types";
 import { createCategory, updateCategory } from "@/lib/queries";
+import { uploadProductImage } from "@/lib/uploadImage";
 import Button from "@/components/ui/Button";
+import { toast } from "sonner";
+import Image from "next/image";
 
 interface CategoryFormProps {
     initialData?: Category | null;
@@ -24,7 +27,6 @@ export default function CategoryForm({ initialData, onSuccess, onCancel }: Categ
         const { name, value } = e.target;
         setForm((prev) => ({ ...prev, [name]: value }));
 
-        // Auto-generate slug from name if creating new category
         if (name === "name" && !initialData) {
             const slug = value
                 .toLowerCase()
@@ -34,19 +36,36 @@ export default function CategoryForm({ initialData, onSuccess, onCancel }: Categ
         }
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const toastId = toast.loading("Uploading image...");
+        try {
+            const url = await uploadProductImage(file);
+            setForm((prev) => ({ ...prev, image: url }));
+            toast.success("Image uploaded", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to upload image", { id: toastId });
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
             if (initialData) {
                 await updateCategory(initialData.id, form);
+                toast.success("Category updated");
             } else {
                 await createCategory(form);
+                toast.success("Category created");
             }
             onSuccess();
         } catch (error) {
             console.error("Error saving category:", error);
-            alert("Failed to save category. Please try again.");
+            toast.error("Failed to save category");
         } finally {
             setIsLoading(false);
         }
@@ -79,15 +98,23 @@ export default function CategoryForm({ initialData, onSuccess, onCancel }: Categ
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-brand-dark mb-1">Image URL</label>
-                <input
-                    type="url"
-                    name="image"
-                    value={form.image}
-                    onChange={handleChange}
-                    placeholder="https://..."
-                    className="w-full px-4 py-2 bg-transparent border border-brand-lilac/30 rounded-sm focus:outline-none focus:border-brand-purple"
-                />
+                <label className="block text-sm font-medium text-brand-dark mb-1">Category Image</label>
+                <div className="flex items-start gap-4">
+                    {form.image && (
+                        <div className="relative w-24 h-24 border rounded overflow-hidden flex-shrink-0">
+                            <Image src={form.image} alt="Preview" fill className="object-cover" />
+                        </div>
+                    )}
+                    <div className="flex-1">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-lilac/10 file:text-brand-purple hover:file:bg-brand-lilac/20"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">Upload a specialized image for this category.</p>
+                    </div>
+                </div>
             </div>
 
             <div>
