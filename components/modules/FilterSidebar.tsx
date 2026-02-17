@@ -45,18 +45,18 @@ function CategoryFilter({ categories, selected, onChange }: { categories: Catego
 }
 
 function PriceFilter({ range, onChange }: { range: [number, number]; onChange: (v: [number, number]) => void }) {
-    const presets: { label: string; value: [number, number] }[] = [
+    const PRICE_RANGES: { label: string; value: [number, number] }[] = [
         { label: "All Prices", value: [0, 999] },
-        { label: "Under $150", value: [0, 150] },
-        { label: "$150 – $300", value: [150, 300] },
-        { label: "Over $300", value: [300, 999] },
+        { label: "Under ₦150", value: [0, 150] },
+        { label: "₦150 – ₦300", value: [150, 300] },
+        { label: "Over ₦300", value: [300, 999] },
     ];
 
     return (
         <div>
             <h3 className="font-sans text-xs font-semibold text-brand-dark uppercase tracking-wider mb-3">Price</h3>
             <ul className="space-y-2">
-                {presets.map((p) => (
+                {PRICE_RANGES.map((p) => (
                     <FilterItem
                         key={p.label}
                         label={p.label}

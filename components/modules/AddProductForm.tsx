@@ -209,11 +209,11 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {/* Cost Price only for New Mode or if we want to show it in existing? */}
                         {mode === "new" && !initialData && (
-                            <InputField label="Cost Price ($)" name="costPrice" type="number" value={invForm.costPrice} onChange={handleInvChange} required />
+                            <InputField label="Cost Price (₦)" name="costPrice" type="number" value={invForm.costPrice} onChange={handleInvChange} required />
                         )}
 
                         <InputField
-                            label={`Selling Price ($) ${mode === "existing" ? "(Managed in Inventory)" : ""}`}
+                            label={`Selling Price (₦) ${mode === "existing" ? "(Managed in Inventory)" : ""}`}
                             name="price"
                             type="number"
                             value={form.price}

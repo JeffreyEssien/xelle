@@ -52,7 +52,14 @@ export default function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
                     icon="💰"
                 />
                 <KPICard
-                    title="Average Order Value"
+                    title="Gross Profit"
+                    value={formatCurrency(data.profit.grossProfit)}
+                    subtext={`${data.profit.grossMargin.toFixed(1)}% Margin`}
+                    icon="📈"
+                    accent="green"
+                />
+                <KPICard
+                    title="Avg Order Value"
                     value={formatCurrency(data.orders.aov)}
                     subtext="Revenue per order"
                     icon="🏷️"
@@ -64,20 +71,14 @@ export default function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
                     icon="📦"
                     accent="amber"
                 />
-                <KPICard
-                    title="Customers"
-                    value={data.customers.total.toString()}
-                    subtext={`${data.customers.new} new this period`}
-                    icon="👥"
-                />
             </div>
 
             {/* Secondary KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <MiniKPICard label="Total COGS" value={formatCurrency(data.profit.totalCOGS)} />
                 <MiniKPICard label="Inventory Value" value={formatCurrency(data.products.inventoryValue)} />
                 <MiniKPICard label="Low Stock Items" value={data.products.lowStock.length.toString()} accent={data.products.lowStock.length > 0 ? "red" : "gray"} />
-                <MiniKPICard label="Coupon Usage" value={data.coupons.totalUsage.toString()} />
-                <MiniKPICard label="Fulfillment Rate" value={`${data.orders.fulfillmentRate.toFixed(1)}%`} />
+                <MiniKPICard label="Net Margin" value={`${data.profit.grossMargin.toFixed(1)}%`} accent={data.profit.grossMargin < 20 ? "red" : "green"} />
             </div>
 
             {/* Charts Row */}
@@ -228,7 +229,8 @@ function KPICard({ title, value, subtext, icon, accent = "purple" }: {
     const accentColor =
         accent === "amber" ? "bg-amber-100 text-amber-700 border-amber-200" :
             accent === "red" ? "bg-red-100 text-red-700 border-red-200" :
-                "bg-brand-lilac/10 text-brand-purple border-brand-lilac/20"; // default
+                accent === "green" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                    "bg-brand-lilac/10 text-brand-purple border-brand-lilac/20"; // default
 
     return (
         <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm flex items-start justify-between">

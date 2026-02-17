@@ -328,21 +328,21 @@ export default function InventoryContent({ logs: initialLogs, inventory: initial
                             {/* Pricing Section */}
                             <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded border border-gray-100">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Cost Price</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Cost Price (₦)</label>
                                     <input
                                         type="number"
                                         value={costPrice}
-                                        onChange={(e) => setCostPrice(Number(e.target.value))}
-                                        className="w-full px-2 py-1 border border-brand-lilac/30 rounded focus:border-brand-purple"
+                                        onChange={(e) => setCostPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="w-full border rounded px-2 py-1"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Selling Price (₦)</label>
                                     <input
                                         type="number"
                                         value={sellingPrice}
-                                        onChange={(e) => setSellingPrice(Number(e.target.value))}
-                                        className="w-full px-2 py-1 border border-brand-lilac/30 rounded focus:border-brand-purple"
+                                        onChange={(e) => setSellingPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="w-full border rounded px-2 py-1"
                                     />
                                 </div>
                                 <div className="col-span-2 text-xs text-center text-gray-400">

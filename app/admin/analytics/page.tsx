@@ -87,7 +87,7 @@ export default function AnalyticsDashboard() {
                 <div className="bg-brand-creme p-6 rounded shadow border border-brand-lilac/10">
                     <h3 className="text-sm font-medium text-gray-500 uppercase">Total Revenue</h3>
                     <p className="text-3xl font-bold text-brand-dark mt-2">
-                        ${orders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}
+                        ₦{orders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}
                     </p>
                 </div>
                 <div className="bg-brand-creme p-6 rounded shadow border border-brand-lilac/10">
@@ -99,7 +99,7 @@ export default function AnalyticsDashboard() {
                 <div className="bg-brand-creme p-6 rounded shadow border border-brand-lilac/10">
                     <h3 className="text-sm font-medium text-gray-500 uppercase">Avg. Order Value</h3>
                     <p className="text-3xl font-bold text-brand-dark mt-2">
-                        ${(orders.reduce((sum, o) => sum + o.total, 0) / (orders.length || 1)).toFixed(2)}
+                        ₦{(orders.reduce((sum, o) => sum + o.total, 0) / (orders.length || 1)).toFixed(2)}
                     </p>
                 </div>
             </div>

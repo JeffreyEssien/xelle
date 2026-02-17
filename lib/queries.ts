@@ -207,19 +207,21 @@ export async function getOrders(): Promise<Order[]> {
 export async function createOrder(order: Order): Promise<void> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error("Database not available");
-    const { error } = await supabase.from("orders").insert({
-        id: order.id,
-        customer_name: order.customerName,
-        email: order.email,
-        phone: order.phone,
-        items: order.items,
-        subtotal: order.subtotal,
-        shipping: order.shipping,
-        total: order.total,
-        status: order.status,
-        shipping_address: order.shippingAddress,
-        created_at: order.createdAt,
+
+    // Use RPC to ensure atomic stock deduction and logging
+    const { error } = await supabase.rpc("process_new_order", {
+        p_order_id: order.id,
+        p_customer_name: order.customerName,
+        p_email: order.email,
+        p_phone: order.phone,
+        p_items: order.items,
+        p_subtotal: order.subtotal,
+        p_shipping: order.shipping,
+        p_total: order.total,
+        p_status: order.status,
+        p_shipping_address: order.shippingAddress
     });
+
     if (error) throw error;
 }
 

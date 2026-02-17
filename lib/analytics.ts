@@ -38,6 +38,13 @@ export interface AnalyticsData {
         totalUsage: number;
         discountImpact: number;
     };
+    profit: {
+        totalRevenue: number;
+        totalCOGS: number;
+        grossProfit: number;
+        grossMargin: number; // percentage
+        profitPerOrder: number;
+    };
 }
 
 export function calculateAnalytics(
@@ -68,6 +75,30 @@ export function calculateAnalytics(
     const revenueMonthly = orders
         .filter(o => new Date(o.createdAt).getTime() >= monthStart)
         .reduce((sum, o) => sum + o.total, 0);
+
+    // --- Profit Metrics ---
+    let totalCOGS = 0;
+
+    orders.forEach(order => {
+        order.items.forEach(item => {
+            // Priority 1: Use snapshot cost from order item (if available from new system)
+            // Priority 2: Use current product cost (implied via some mapping if we had it, but we only have Product[])
+            // For now, we rely on the 'costPrice' property which we are now adding to order items.
+            // If missing (old orders), we assume 0 or ideally we'd fetch it. 
+            // To be safe for "Profit" reporting, we only count what we know.
+            const itemCost = (item as any).costPrice || 0;
+            totalCOGS += itemCost * item.quantity;
+        });
+    });
+
+    const grossProfit = totalRevenue - totalCOGS - shippingRevenue; // Net out shipping? Usually COGS is against Goods. 
+    // Gross Profit = Revenue (Goods) - COGS. Shipping is separate. 
+    // Let's align: Gross Profit = (Subtotal) - COGS. 
+    // Total Revenue usually includes shipping. 
+    // Let's use: Gross Profit = Subtotal - COGS.
+    const realGrossProfit = subtotalRevenue - totalCOGS;
+    const grossMargin = subtotalRevenue > 0 ? (realGrossProfit / subtotalRevenue) * 100 : 0;
+    const profitPerOrder = orders.length > 0 ? realGrossProfit / orders.length : 0;
 
     // --- Order Metrics ---
     const totalOrders = orders.length;
@@ -203,6 +234,13 @@ export function calculateAnalytics(
         coupons: {
             totalUsage: totalCouponUsage,
             discountImpact: 0 // Need more data to calc
+        },
+        profit: {
+            totalRevenue: totalRevenue,
+            totalCOGS: totalCOGS,
+            grossProfit: realGrossProfit,
+            grossMargin: grossMargin,
+            profitPerOrder: profitPerOrder
         }
     };
 }

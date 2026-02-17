@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
 function formatItems(order: Order): string {
   return order.items
-    .map((i) => `  • ${i.product.name} ×${i.quantity}  —  $${(i.product.price * i.quantity).toFixed(2)}`)
+    .map((i) => `  • ${i.product.name} ×${i.quantity}  —  ₦${(i.product.price * i.quantity).toFixed(2)}`)
     .join("\n") || "  (no items listed)";
 }
 
@@ -58,9 +58,9 @@ ITEMS
 ${formatItems(order)}
 
 TOTALS
-  Subtotal: $${order.subtotal.toFixed(2)}
-  Shipping: ${order.shipping === 0 ? "Free" : `$${order.shipping.toFixed(2)}`}
-  Total:    $${order.total.toFixed(2)}
+  Subtotal: ₦${order.subtotal.toFixed(2)}
+  Shipping: ${order.shipping === 0 ? "Free" : `₦${order.shipping.toFixed(2)}`}
+  Total:    ₦${order.total.toFixed(2)}
 
 Status: ${order.status.toUpperCase()}
 `.trim();
@@ -79,9 +79,9 @@ Date:  ${new Date(order.createdAt).toLocaleDateString("en-US", { year: "numeric"
 ITEMS
 ${formatItems(order)}
 
-SUBTOTAL:  $${order.subtotal.toFixed(2)}
-SHIPPING:  ${order.shipping === 0 ? "Free" : `$${order.shipping.toFixed(2)}`}
-TOTAL:     $${order.total.toFixed(2)}
+SUBTOTAL:  ₦${order.subtotal.toFixed(2)}
+SHIPPING:  ${order.shipping === 0 ? "Free" : `₦${order.shipping.toFixed(2)}`}
+TOTAL:     ₦${order.total.toFixed(2)}
 
 SHIPPING TO
   ${a.address}
