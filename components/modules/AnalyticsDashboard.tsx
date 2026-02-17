@@ -1,221 +1,197 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar, PieChart, Pie, Cell, Legend
 } from "recharts";
 import { formatCurrency } from "@/lib/formatCurrency";
 import type { AnalyticsData } from "@/lib/analytics";
-import Badge from "@/components/ui/Badge";
-import Link from "next/link";
 
 interface AnalyticsDashboardProps {
     data: AnalyticsData;
 }
 
-const STATUS_COLORS = {
-    pending: "#F59E0B", // amber-500
-    shipped: "#3B82F6", // blue-500
-    delivered: "#10B981", // emerald-500
-};
-
 export default function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
+    const [activeTab, setActiveTab] = useState<"sales" | "inventory" | "customers" | "marketing" | "operations">("sales");
 
-    const orderStatusData = useMemo(() => [
-        { name: "Pending", value: data.orders.pending, color: STATUS_COLORS.pending },
-        { name: "Shipped", value: data.orders.shipped, color: STATUS_COLORS.shipped },
-        { name: "Delivered", value: data.orders.delivered, color: STATUS_COLORS.delivered },
-    ].filter(d => d.value > 0), [data.orders]);
+    const tabs = [
+        { id: "sales", label: "Sales & Profit" },
+        { id: "inventory", label: "Inventory" },
+        { id: "customers", label: "Customers" },
+        { id: "marketing", label: "Marketing" },
+        { id: "operations", label: "Operations" },
+    ] as const;
 
     return (
         <div className="space-y-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                 <div>
-                    <h1 className="text-3xl font-serif text-brand-dark">Dashboard</h1>
+                    <h1 className="text-3xl font-serif text-brand-dark">Analytics</h1>
                     <p className="text-brand-dark/50 text-sm mt-1">
-                        Overview of your store performance
+                        Comprehensive store insights
                     </p>
                 </div>
-                <div className="text-xs text-brand-dark/40 font-mono">
-                    Last updated: {new Date().toLocaleTimeString()}
+                <div className="flex space-x-1 bg-brand-creme/50 p-1 rounded-lg border border-brand-lilac/10">
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === tab.id
+                                    ? "bg-white text-brand-purple shadow-sm border border-brand-lilac/20"
+                                    : "text-brand-dark/60 hover:text-brand-dark"
+                                }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            {/* KPI Grid */}
+            {/* Tab Content */}
+            {activeTab === "sales" && <SalesView data={data} />}
+            {activeTab === "inventory" && <InventoryView data={data} />}
+            {activeTab === "customers" && <CustomersView data={data} />}
+            {activeTab === "marketing" && <MarketingView data={data} />}
+            {activeTab === "operations" && <OperationsView data={data} />}
+
+        </div>
+    );
+}
+
+// --- Views ---
+
+function SalesView({ data }: { data: AnalyticsData }) {
+    return (
+        <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard
-                    title="Total Revenue"
-                    value={formatCurrency(data.revenue.total)}
-                    subtext={`${data.orders.total} orders total`}
-                    icon="💰"
-                />
-                <KPICard
-                    title="Gross Profit"
-                    value={formatCurrency(data.profit.grossProfit)}
-                    subtext={`${data.profit.grossMargin.toFixed(1)}% Margin`}
-                    icon="📈"
-                    accent="green"
-                />
-                <KPICard
-                    title="Avg Order Value"
-                    value={formatCurrency(data.orders.aov)}
-                    subtext="Revenue per order"
-                    icon="🏷️"
-                />
-                <KPICard
-                    title="Pending Orders"
-                    value={data.orders.pending.toString()}
-                    subtext="Requires fulfillment"
-                    icon="📦"
-                    accent="amber"
-                />
+                <KPICard title="Total Revenue" value={formatCurrency(data.sales.totalRevenue)} icon="💰" />
+                <KPICard title="Gross Profit" value={formatCurrency(data.profit.grossProfit)} icon="📈" accent="green" subtext={`${data.profit.grossMargin.toFixed(1)}% Margin`} />
+                <KPICard title="Net Revenue" value={formatCurrency(data.sales.netRevenue)} icon="🧾" subtext="Excl. Shipping" />
+                <KPICard title="Avg Order Value" value={formatCurrency(data.sales.aov)} icon="🏷️" />
             </div>
 
-            {/* Secondary KPIs */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MiniKPICard label="Total COGS" value={formatCurrency(data.profit.totalCOGS)} />
-                <MiniKPICard label="Inventory Value" value={formatCurrency(data.products.inventoryValue)} />
-                <MiniKPICard label="Low Stock Items" value={data.products.lowStock.length.toString()} accent={data.products.lowStock.length > 0 ? "red" : "gray"} />
-                <MiniKPICard label="Net Margin" value={`${data.profit.grossMargin.toFixed(1)}%`} accent={data.profit.grossMargin < 20 ? "red" : "green"} />
-            </div>
-
-            {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Revenue Trend */}
                 <div className="lg:col-span-2 bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm">
-                    <h3 className="text-lg font-medium text-brand-dark mb-6">Revenue Trend (Last 7 Days)</h3>
-                    <div className="h-[300px] w-full">
+                    <h3 className="text-lg font-medium text-brand-dark mb-6">Revenue Trend</h3>
+                    <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={data.orders.trend}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis
-                                    dataKey="date"
-                                    stroke="#888"
-                                    fontSize={12}
-                                    tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { weekday: 'short' })}
-                                />
-                                <YAxis
-                                    stroke="#888"
-                                    fontSize={12}
-                                    tickFormatter={(val) => `₦${val / 1000}k`}
-                                />
-                                <Tooltip
-                                    formatter={(value: number | string | Array<number | string> | undefined) => [formatCurrency(Number(value || 0)), "Revenue"]}
-                                    labelFormatter={(label) => new Date(label).toDateString()}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="value"
-                                    stroke="#6d28d9"
-                                    strokeWidth={3}
-                                    dot={{ r: 4, fill: "#6d28d9" }}
-                                    activeDot={{ r: 6 }}
-                                />
+                            <LineChart data={data.sales.trend}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis dataKey="date" stroke="#888" fontSize={12} tickFormatter={d => new Date(d).toLocaleDateString(undefined, { weekday: 'short' })} />
+                                <YAxis stroke="#888" fontSize={12} tickFormatter={v => `₦${v / 1000}k`} />
+                                <Tooltip formatter={(val) => formatCurrency(Number(val))} />
+                                <Line type="monotone" dataKey="value" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4 }} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
-
-                {/* Order Status */}
                 <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm">
-                    <h3 className="text-lg font-medium text-brand-dark mb-6">Order Status</h3>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={orderStatusData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                >
-                                    {orderStatusData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend verticalAlign="bottom" height={36} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    <h3 className="text-lg font-medium text-brand-dark mb-6">Revenue by Status</h3>
+                    <div className="space-y-4">
+                        {Object.entries(data.sales.revenueByStatus).map(([status, amount], i) => (
+                            <div key={status} className="flex justify-between items-center">
+                                <span className="capitalize text-sm text-gray-600">{status}</span>
+                                <div className="text-right">
+                                    <div className="font-medium">{formatCurrency(amount)}</div>
+                                    <div className="text-xs text-gray-400">
+                                        {((amount / data.sales.totalRevenue) * 100).toFixed(0)}%
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
-                    {data.orders.total === 0 && (
-                        <div className="text-center text-sm text-gray-500 mt-[-150px]">No orders yet</div>
-                    )}
                 </div>
             </div>
 
-            {/* Tables Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Top Products */}
-                <div className="bg-white rounded-lg border border-brand-lilac/20 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-brand-lilac/10">
-                        <h3 className="text-lg font-medium text-brand-dark">Top Selling Products</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-brand-creme text-brand-dark/70">
-                                <tr>
-                                    <th className="px-6 py-3 font-medium">Product</th>
-                                    <th className="px-6 py-3 font-medium text-right">Sold</th>
-                                    <th className="px-6 py-3 font-medium text-right">Revenue</th>
+            <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm">
+                <h3 className="text-lg font-medium text-brand-dark mb-4">Top Selling Products</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500">
+                            <tr>
+                                <th className="px-4 py-2">Product</th>
+                                <th className="px-4 py-2 text-right">Units Sold</th>
+                                <th className="px-4 py-2 text-right">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {data.products.topSelling.map(p => (
+                                <tr key={p.id}>
+                                    <td className="px-4 py-3 font-medium text-brand-dark">{p.name}</td>
+                                    <td className="px-4 py-3 text-right">{p.quantity}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(p.revenue)}</td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-brand-lilac/10">
-                                {data.products.topSelling.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={3} className="px-6 py-8 text-center text-gray-500">No sales data yet.</td>
-                                    </tr>
-                                ) : (
-                                    data.products.topSelling.map((p) => (
-                                        <tr key={p.id} className="hover:bg-brand-creme/20">
-                                            <td className="px-6 py-3 font-medium text-brand-dark">{p.name}</td>
-                                            <td className="px-6 py-3 text-right">{p.quantity}</td>
-                                            <td className="px-6 py-3 text-right">{formatCurrency(p.revenue)}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function InventoryView({ data }: { data: AnalyticsData }) {
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard title="Inventory Value (Cost)" value={formatCurrency(data.inventory.totalValuationCost)} icon="🏭" />
+                <KPICard title="Inventory Value (Retail)" value={formatCurrency(data.inventory.totalValuationRetail)} icon="🏷️" />
+                <KPICard title="Projected Margin" value={`${data.inventory.projectedMargin.toFixed(1)}%`} icon="📊" accent="amber" />
+                <KPICard title="Stock Turnover" value={`${(data.products.turnoverRate * 100).toFixed(1)}%`} icon="🔄" subtext="Units Sold / Current Stock" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm">
+                    <h3 className="text-lg font-medium text-brand-dark mb-4">Stock Health</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <MiniKPICard label="Low Stock Items" value={data.inventory.lowStockCount.toString()} accent={data.inventory.lowStockCount > 0 ? "red" : "gray"} />
+                        <MiniKPICard label="Out of Stock" value={data.inventory.outOfStockCount.toString()} accent={data.inventory.outOfStockCount > 0 ? "red" : "gray"} />
+                        <MiniKPICard label="Shrinkage Value" value={formatCurrency(data.inventory.shrinkageValue)} accent="red" />
+                        <MiniKPICard label="Total Items" value={data.inventory.totalItems.toString()} />
                     </div>
                 </div>
+                <div className="bg-brand-creme/30 p-6 rounded-lg border border-brand-lilac/10">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase mb-4">Inventory Insights</h3>
+                    <ul className="space-y-2 text-sm text-gray-600">
+                        <li>• You have <b>{data.inventory.lowStockCount}</b> items below reorder level.</li>
+                        <li>• Estimated <b>{formatCurrency(data.inventory.totalValuationRetail - data.inventory.totalValuationCost)}</b> potential profit locked in stock.</li>
+                        <li>• Shrinkage accounts for <b>{formatCurrency(data.inventory.shrinkageValue)}</b> loss.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+}
 
-                {/* Top Customers */}
-                <div className="bg-white rounded-lg border border-brand-lilac/20 shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-brand-lilac/10">
-                        <h3 className="text-lg font-medium text-brand-dark">Top Customers</h3>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-brand-creme text-brand-dark/70">
-                                <tr>
-                                    <th className="px-6 py-3 font-medium">Customer</th>
-                                    <th className="px-6 py-3 font-medium text-right">Orders</th>
-                                    <th className="px-6 py-3 font-medium text-right">Total Spent</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-brand-lilac/10">
-                                {data.customers.topCustomers.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={3} className="px-6 py-8 text-center text-gray-500">No customer data yet.</td>
-                                    </tr>
-                                ) : (
-                                    data.customers.topCustomers.map((c) => (
-                                        <tr key={c.id} className="hover:bg-brand-creme/20">
-                                            <td className="px-6 py-3">
-                                                <div className="font-medium text-brand-dark">{c.name}</div>
-                                                <div className="text-xs text-gray-500">{c.email}</div>
-                                            </td>
-                                            <td className="px-6 py-3 text-right">{c.ordersCount}</td>
-                                            <td className="px-6 py-3 text-right">{formatCurrency(c.totalSpent)}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+function CustomersView({ data }: { data: AnalyticsData }) {
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard title="Total Customers" value={data.customers.total.toString()} icon="users" />
+                <KPICard title="New (30d)" value={data.customers.new.toString()} icon="user-plus" accent="green" />
+                <KPICard title="Returning Rate" value={`${data.customers.returningRate.toFixed(1)}%`} icon="repeat" />
+                <KPICard title="Avg CLV" value={formatCurrency(data.customers.clv)} icon="gem" subtext="Lifetime Value" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm">
+                    <h3 className="text-lg font-medium text-brand-dark mb-6">Guest vs Registered</h3>
+                    <div className="h-[200px] flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={[
+                                    { name: "Registered", value: data.customers.registeredVsGuest.registered },
+                                    { name: "Guest", value: data.customers.registeredVsGuest.guest }
+                                ]} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                    <Cell fill="#8b5cf6" />
+                                    <Cell fill="#cbd5e1" />
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             </div>
@@ -223,24 +199,76 @@ export default function AnalyticsDashboard({ data }: AnalyticsDashboardProps) {
     );
 }
 
+function MarketingView({ data }: { data: AnalyticsData }) {
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard title="Coupon Usage" value={data.marketing.couponUsage.toString()} icon="ticket" />
+                <KPICard title="Avg Discount Impact" value={`${data.marketing.discountImpact.toFixed(1)}%`} icon="percent" accent="amber" />
+            </div>
+
+            <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm">
+                <h3 className="text-lg font-medium text-brand-dark mb-4">Top Performing Coupons</h3>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-500">
+                            <tr>
+                                <th className="px-4 py-2">Code</th>
+                                <th className="px-4 py-2 text-right">Usage Count</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {data.marketing.topCoupons.map(c => (
+                                <tr key={c.code}>
+                                    <td className="px-4 py-3 font-mono font-medium text-brand-purple">{c.code}</td>
+                                    <td className="px-4 py-3 text-right">{c.count}</td>
+                                </tr>
+                            ))}
+                            {data.marketing.topCoupons.length === 0 && (
+                                <tr><td colSpan={2} className="p-4 text-center text-gray-400">No coupon usage yet</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function OperationsView({ data }: { data: AnalyticsData }) {
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <KPICard title="Fulfillment Rate" value={`${data.operations.fulfillmentRate.toFixed(1)}%`} icon="truck" accent={data.operations.fulfillmentRate > 90 ? "green" : "amber"} />
+                <KPICard title="Pending Backlog" value={data.operations.backlog.toString()} icon="clock" accent={data.operations.backlog > 5 ? "red" : "purple"} />
+                <KPICard title="Recent Activity" value={data.operations.recentActivityCount.toString()} icon="activity" subtext="Events in last 24h" />
+            </div>
+        </div>
+    );
+}
+
+
+// --- Components ---
+
 function KPICard({ title, value, subtext, icon, accent = "purple" }: {
-    title: string; value: string; subtext: string; icon: string; accent?: string
+    title: string; value: string; subtext?: string; icon: string; accent?: string
 }) {
     const accentColor =
         accent === "amber" ? "bg-amber-100 text-amber-700 border-amber-200" :
             accent === "red" ? "bg-red-100 text-red-700 border-red-200" :
                 accent === "green" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                    "bg-brand-lilac/10 text-brand-purple border-brand-lilac/20"; // default
+                    "bg-brand-lilac/10 text-brand-purple border-brand-lilac/20";
 
     return (
         <div className="bg-white p-6 rounded-lg border border-brand-lilac/20 shadow-sm flex items-start justify-between">
             <div>
                 <p className="text-sm font-medium text-brand-dark/60">{title}</p>
                 <h3 className="text-2xl font-serif text-brand-dark mt-1 font-bold">{value}</h3>
-                <p className="text-xs text-brand-dark/40 mt-1">{subtext}</p>
+                {subtext && <p className="text-xs text-brand-dark/40 mt-1">{subtext}</p>}
             </div>
             <div className={`p-3 rounded-full border ${accentColor}`}>
-                <span className="text-xl">{icon}</span>
+                {/* Simple icon or feather icon wrapper can go here. Using emoji for simplicity/speed or lucide-react if avail */}
+                <span className="text-xl leading-none block">{icon}</span>
             </div>
         </div>
     );

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SITE_NAME } from "@/lib/constants";
+import { SITE_NAME, SITE_EMAIL } from "@/lib/constants";
 
 export default function Footer() {
     return (
@@ -62,7 +62,7 @@ function ConnectColumn() {
             <h4 className="font-sans text-sm font-semibold text-brand-dark mb-3 uppercase tracking-wider">
                 Connect
             </h4>
-            <p className="text-sm text-brand-dark/60">hello@xelle.com</p>
+            <p className="text-sm text-brand-dark/60">{SITE_EMAIL}</p>
             <div className="flex gap-4 mt-4">
                 {["Instagram", "Pinterest", "Twitter"].map((s) => (
                     <span key={s} className="text-xs text-brand-dark/40 hover:text-brand-purple transition-colors cursor-pointer">

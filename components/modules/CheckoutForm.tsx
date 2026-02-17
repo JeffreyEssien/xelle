@@ -20,7 +20,7 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
     const [form, setForm] = useState<ShippingAddress>(emptyAddress);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof ShippingAddress, string>>>({});
-    const { items, subtotal, clearCart } = useCartStore();
+    const { items, subtotal, clearCart, couponCode, discount, removeCoupon } = useCartStore();
     const { addOrder } = useOrderStore();
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,6 +28,7 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
         setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
     };
 
+    // ... validate ...
     const validate = (): boolean => {
         const e: typeof errors = {};
         if (!form.firstName.trim()) e.firstName = "Required";
@@ -48,32 +49,60 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
 
         const sub = subtotal();
         const ship = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
+
+        // Calculate total discount value (if percentage based in store)
+        // Store keeps discount as percentage number (e.g. 20 for 20%)
+        // We need the actual amount deducted.
+        const discountAmount = sub * (discount / 100);
+
         const order: Order = {
             id: `ORD-${Date.now().toString(36).toUpperCase()}`,
             customerName: `${form.firstName} ${form.lastName}`,
             email: form.email,
             phone: form.phone,
             items: [...items],
-            subtotal: sub,
+            subtotal: sub, // Original subtotal
             shipping: ship,
-            total: sub + ship,
+            total: Math.max(0, sub - discountAmount) + ship, // Final total
             status: "pending",
             createdAt: new Date().toISOString(),
             shippingAddress: { ...form },
+            couponCode: couponCode || undefined,
+            discountTotal: discountAmount > 0 ? discountAmount : undefined
         };
 
         try {
-            await fetch("/api/orders", {
+            const res = await fetch("/api/orders", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(order),
             });
-        } catch { /* email send is best-effort */ }
 
-        addOrder(order);
-        clearCart();
-        setLoading(false);
-        onComplete();
+            const data = await res.json();
+
+            if (!res.ok || !data.success) {
+                console.error("Order failed:", data);
+                // Set a general error or specific field error if possible.
+                // For now, we'll alert (or could add a top-level error state).
+                // Ideally, use a toast or a form-level error message.
+                // Since this component doesn't have a toast prop, we'll throw to catch block or alert.
+                alert(data.error || "Failed to place order. Please try again."); // Simple fallback
+                setLoading(false);
+                return;
+            }
+
+            addOrder(order);
+            clearCart();
+            removeCoupon(); // Clear used coupon
+            setLoading(false);
+            onComplete();
+
+        } catch (err) {
+            console.error("Order submission error:", err);
+            // Don't clear cart if it failed!
+            alert("Something went wrong. Please check your connection and try again.");
+            setLoading(false);
+        }
     };
 
     return (

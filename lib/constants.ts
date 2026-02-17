@@ -5,6 +5,8 @@ export const LOW_STOCK_THRESHOLD = 5;
 export const SHIPPING_RATE = 9.99;
 export const FREE_SHIPPING_THRESHOLD = 150;
 
+export const SITE_EMAIL = "xelle.ng2026@gmail.com";
+
 export const NAV_LINKS = [
     { label: "Home", href: "/" },
     { label: "Shop", href: "/shop" },

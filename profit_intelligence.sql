@@ -61,7 +61,7 @@ BEGIN
   INSERT INTO orders (
     id, customer_name, email, phone, items, subtotal, shipping, total, status, shipping_address, created_at
   ) VALUES (
-    p_order_id, p_customer_name, p_email, p_phone, p_final_items, p_subtotal, p_shipping, p_total, p_status, p_shipping_address, now()
+    p_order_id, p_customer_name, p_email, p_phone, v_final_items, p_subtotal, p_shipping, p_total, p_status, p_shipping_address, now()
   );
 
 END;

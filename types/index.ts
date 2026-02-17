@@ -73,6 +73,8 @@ export interface Order {
     createdAt: string;
     shippingAddress: ShippingAddress;
     notes?: string;
+    couponCode?: string;
+    discountTotal?: number;
 }
 
 export interface SiteSettings {

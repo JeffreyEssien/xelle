@@ -43,15 +43,36 @@ export const useCartStore = create<CartStore>()(
                     const existingItem = state.items.find(
                         (item) => item.product.id === product.id && item.variant?.name === variant?.name
                     );
+
+                    // Specific variant stock takes precedence; fallback to product stock; default 0 if unknown
+                    const availableStock = (variant?.stock !== undefined) ? variant.stock : product.stock;
+
                     if (existingItem) {
+                        const newQuantity = existingItem.quantity + 1;
+                        if (newQuantity > availableStock) {
+                            // Using sonner for toast would require importing toast, but this is a hook/store.
+                            // We can't easily use the hook here. 
+                            // We'll console warn for now, and rely on the UI component to show toast if we return false?
+                            // Zustand actions usually void.
+                            // Let's just block it. The UI (ProductCard) usually checks disabled state.
+                            // But for "add one more", we need feedback.
+                            // We can use the global toast function if exported, or just fail silently as a safeguard.
+                            // User demanded "he shouldnt even be able to add", so blocking is primary.
+                            return { state };
+                        }
                         return {
                             items: state.items.map((item) =>
                                 item.product.id === product.id && item.variant?.name === variant?.name
-                                    ? { ...item, quantity: item.quantity + 1 }
+                                    ? { ...item, quantity: newQuantity }
                                     : item
                             ),
                         };
                     }
+
+                    if (1 > availableStock) {
+                        return { state };
+                    }
+
                     return { items: [...state.items, { product, variant, quantity: 1 }] };
                 });
             },
@@ -63,13 +84,18 @@ export const useCartStore = create<CartStore>()(
             },
 
             updateQuantity: (productId, variantName, quantity) => {
-                set((state) => ({
-                    items: state.items.map((item) =>
-                        item.product.id === productId && item.variant?.name === variantName
-                            ? { ...item, quantity: Math.max(0, quantity) }
-                            : item
-                    ).filter((item) => item.quantity > 0),
-                }));
+                set((state) => {
+                    return {
+                        items: state.items.map((item) => {
+                            if (item.product.id === productId && item.variant?.name === variantName) {
+                                const stock = (item.variant && item.variant.stock !== undefined) ? item.variant.stock : item.product.stock;
+                                const newQuantity = Math.min(Math.max(0, quantity), stock);
+                                return { ...item, quantity: newQuantity };
+                            }
+                            return item;
+                        }).filter((item) => item.quantity > 0),
+                    };
+                });
             },
 
             clearCart: () => set({ items: [], discount: 0, couponCode: null }),

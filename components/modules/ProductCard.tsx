@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import type { Product } from "@/types";
 import Badge from "@/components/ui/Badge";
 import { useCartStore } from "@/lib/cartStore";
+import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 
 interface ProductCardProps {
     product: Product;
@@ -37,9 +38,16 @@ export default function ProductCard({ product }: ProductCardProps) {
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    {product.isNew && (
+                    {product.isNew && product.stock > LOW_STOCK_THRESHOLD && (
                         <div className="absolute top-3 left-3">
                             <Badge>New</Badge>
+                        </div>
+                    )}
+                    {product.stock <= LOW_STOCK_THRESHOLD && product.stock > 0 && (
+                        <div className="absolute top-3 left-3">
+                            <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded-sm border border-amber-200">
+                                Only {product.stock} left
+                            </span>
                         </div>
                     )}
                     <QuickAddButton onClick={handleQuickAdd} disabled={product.stock === 0} />

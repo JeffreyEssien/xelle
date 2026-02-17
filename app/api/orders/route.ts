@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { Order } from "@/types";
 import { createOrder } from "@/lib/queries";
+import { SITE_EMAIL } from "@/lib/constants";
 
-const ADMIN_EMAIL = "mrsamoladapo@gmail.com";
+const ADMIN_EMAIL = SITE_EMAIL;
 
 export async function POST(request: Request) {
   try {
