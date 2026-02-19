@@ -58,7 +58,7 @@ export const useCartStore = create<CartStore>()(
                             // But for "add one more", we need feedback.
                             // We can use the global toast function if exported, or just fail silently as a safeguard.
                             // User demanded "he shouldnt even be able to add", so blocking is primary.
-                            return { state };
+                            return {};
                         }
                         return {
                             items: state.items.map((item) =>
@@ -70,7 +70,7 @@ export const useCartStore = create<CartStore>()(
                     }
 
                     if (1 > availableStock) {
-                        return { state };
+                        return {};
                     }
 
                     return { items: [...state.items, { product, variant, quantity: 1 }] };

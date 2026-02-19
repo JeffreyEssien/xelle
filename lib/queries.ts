@@ -31,6 +31,8 @@ interface DbOrder {
     shipping_address: Order["shippingAddress"];
     created_at: string;
     notes?: string;
+    coupon_code?: string;
+    discount_total?: number;
 }
 
 function toProduct(row: DbProduct): Product {
@@ -65,6 +67,8 @@ function toOrder(row: DbOrder): Order {
         shippingAddress: row.shipping_address,
         createdAt: row.created_at,
         notes: row.notes,
+        couponCode: row.coupon_code || undefined,
+        discountTotal: row.discount_total ? Number(row.discount_total) : undefined,
     };
 }
 
@@ -210,78 +214,29 @@ export async function createOrder(order: Order): Promise<void> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error("Database not available");
 
-    // Use direct insert to bypass broken RPC (process_new_order)
-
-    // 1. Deduct stock manually
+    // Deduct stock atomically via RPC (prevents race conditions)
     for (const item of order.items) {
-        if (item.product.inventoryId) {
-            const { error: stockError } = await supabase.from("inventory_items")
-                .update({
-                    updated_at: new Date().toISOString()
-                    // We can't do atomic decrement "stock = stock - x" easily via simple update unless we read first or use a custom rpc. 
-                    // But we can try the "RPC-less" decrement pattern if Supabase supports it, or read-modify-write.
-                    // Given high concurrency isn't mentioned as critical vs "working", read-modify-write is acceptable or we can just hope 'rpc' wasn't the only way.
-                    // Wait, standard update accepts { stock: new_value }.
-                    // We should read the item first to get current stock.
-                })
-                .eq("id", item.product.inventoryId);
+        if (!item.product.inventoryId) continue;
 
-            // To strictly deduct, we need to read first.
-            // Implemented below loop for efficiency? No, inside loop.
+        const { error: rpcError } = await supabase.rpc("deduct_stock", {
+            p_inventory_id: item.product.inventoryId,
+            p_quantity: item.quantity,
+        });
+
+        if (rpcError) {
+            throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name}`);
         }
+
+        // Log the inventory change (best-effort, ignore failures)
+        const { error: logError } = await supabase.from("inventory_logs").insert({
+            product_id: item.product.id,
+            change_amount: -item.quantity,
+            reason: 'order'
+        });
+        if (logError) console.warn("Inventory log failed:", logError.message);
     }
 
-    // Better approach: Read-Modify-Write for each item with validation
-    // Note: Use Promise.all for parallelism
-    await Promise.all(order.items.map(async (item) => {
-        if (!item.product.inventoryId) return;
-
-        // Fetch current
-        const { data: invItem } = await supabase
-            .from("inventory_items")
-            .select("stock")
-            .eq("id", item.product.inventoryId)
-            .single();
-
-        if (invItem) {
-            if (invItem.stock < item.quantity) {
-                throw new Error(`Insufficient stock for ${item.product.name}. Only ${invItem.stock} left.`);
-            }
-
-            const newStock = invItem.stock - item.quantity;
-
-            const { error: updateError } = await supabase
-                .from("inventory_items")
-                .update({ stock: newStock, updated_at: new Date().toISOString() })
-                .eq("id", item.product.inventoryId);
-
-            if (updateError) throw updateError;
-
-            // Try log (might fail due to RLS, ignore if so)
-            /* 
-            await supabase.from("inventory_logs").insert({
-               product_id: item.product.id,
-               change_amount: -item.quantity,
-               reason: 'order'
-            }).catch(() => {}); 
-            */
-        }
-    }));
-
-    // Prepare notes with metadata if coupon exists
-    let dbNotes = order.notes || null;
-    if (order.couponCode || order.discountTotal) {
-        const metadata = {
-            userNotes: order.notes,
-            coupon: {
-                code: order.couponCode,
-                discount: order.discountTotal
-            }
-        };
-        dbNotes = JSON.stringify(metadata);
-    }
-
-    // 2. Insert Order
+    // Insert Order with proper coupon columns (no JSON hack)
     const { error } = await supabase.from("orders").insert({
         id: order.id,
         customer_name: order.customerName,
@@ -293,7 +248,9 @@ export async function createOrder(order: Order): Promise<void> {
         total: order.total,
         status: order.status,
         shipping_address: order.shippingAddress,
-        notes: dbNotes,
+        notes: order.notes || null,
+        coupon_code: order.couponCode || null,
+        discount_total: order.discountTotal || 0,
         created_at: new Date().toISOString()
     });
 

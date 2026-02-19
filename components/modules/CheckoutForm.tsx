@@ -4,7 +4,7 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import { useCartStore } from "@/lib/cartStore";
 import { useOrderStore } from "@/lib/orderStore";
-import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
+import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD, WHATSAPP_NUMBER } from "@/lib/constants";
 import type { ShippingAddress, Order } from "@/types";
 
 interface CheckoutFormProps {
@@ -22,6 +22,8 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
     const [errors, setErrors] = useState<Partial<Record<keyof ShippingAddress, string>>>({});
     const { items, subtotal, clearCart, couponCode, discount, removeCoupon } = useCartStore();
     const { addOrder } = useOrderStore();
+
+    const [paymentMethod, setPaymentMethod] = useState<"whatsapp" | "manual">("whatsapp");
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -49,10 +51,6 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
 
         const sub = subtotal();
         const ship = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
-
-        // Calculate total discount value (if percentage based in store)
-        // Store keeps discount as percentage number (e.g. 20 for 20%)
-        // We need the actual amount deducted.
         const discountAmount = sub * (discount / 100);
 
         const order: Order = {
@@ -61,9 +59,9 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
             email: form.email,
             phone: form.phone,
             items: [...items],
-            subtotal: sub, // Original subtotal
+            subtotal: sub,
             shipping: ship,
-            total: Math.max(0, sub - discountAmount) + ship, // Final total
+            total: Math.max(0, sub - discountAmount) + ship,
             status: "pending",
             createdAt: new Date().toISOString(),
             shippingAddress: { ...form },
@@ -82,24 +80,34 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
 
             if (!res.ok || !data.success) {
                 console.error("Order failed:", data);
-                // Set a general error or specific field error if possible.
-                // For now, we'll alert (or could add a top-level error state).
-                // Ideally, use a toast or a form-level error message.
-                // Since this component doesn't have a toast prop, we'll throw to catch block or alert.
-                alert(data.error || "Failed to place order. Please try again."); // Simple fallback
+                alert(data.error || "Failed to place order. Please try again.");
                 setLoading(false);
                 return;
             }
 
             addOrder(order);
             clearCart();
-            removeCoupon(); // Clear used coupon
+            removeCoupon();
             setLoading(false);
-            onComplete();
+
+            if (paymentMethod === "whatsapp") {
+                const message = encodeURIComponent(
+                    `*New Order: ${order.id}*\n\n` +
+                    `*Customer:* ${order.customerName}\n` +
+                    `*Email:* ${order.email}\n` +
+                    `*Phone:* ${order.phone}\n\n` +
+                    `*Items:*\n` +
+                    order.items.map(i => `${i.quantity}x ${i.product.name} (${i.variant?.name || 'Default'})`).join('\n') +
+                    `\n\n*Total:* ₦${order.total.toLocaleString()}\n\n` +
+                    `I would like to pay for this order.`
+                );
+                window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+            } else {
+                onComplete();
+            }
 
         } catch (err) {
             console.error("Order submission error:", err);
-            // Don't clear cart if it failed!
             alert("Something went wrong. Please check your connection and try again.");
             setLoading(false);
         }
@@ -126,8 +134,41 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
             </div>
             <Field label="Country" name="country" value={form.country} error={errors.country} onChange={handleChange} />
 
+            <SectionTitle>Payment Method</SectionTitle>
+            <div className="space-y-3">
+                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'whatsapp' ? 'border-brand-purple bg-brand-purple/5' : 'border-brand-lilac/20 hover:border-brand-purple/50'}`}>
+                    <input
+                        type="radio"
+                        name="payment"
+                        value="whatsapp"
+                        checked={paymentMethod === 'whatsapp'}
+                        onChange={() => setPaymentMethod('whatsapp')}
+                        className="mt-1"
+                    />
+                    <div>
+                        <span className="block font-medium text-brand-dark">Pay on WhatsApp</span>
+                        <span className="block text-sm text-brand-dark/60">Chat with us to complete your payment. Fast & secure.</span>
+                    </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'manual' ? 'border-brand-purple bg-brand-purple/5' : 'border-brand-lilac/20 hover:border-brand-purple/50'}`}>
+                    <input
+                        type="radio"
+                        name="payment"
+                        value="manual"
+                        checked={paymentMethod === 'manual'}
+                        onChange={() => setPaymentMethod('manual')}
+                        className="mt-1"
+                    />
+                    <div>
+                        <span className="block font-medium text-brand-dark">Wait for Admin Confirmation</span>
+                        <span className="block text-sm text-brand-dark/60">Place order now and wait for an admin to contact you for payment.</span>
+                    </div>
+                </label>
+            </div>
+
             <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                {loading ? "Placing Order…" : "Place Order"}
+                {loading ? "Processing..." : (paymentMethod === 'whatsapp' ? "Place Order & Chat on WhatsApp" : "Place Order")}
             </Button>
         </form>
     );
