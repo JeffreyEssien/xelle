@@ -86,6 +86,21 @@ export interface SiteSettings {
     heroImage?: string;
     heroCtaText?: string;
     heroCtaLink?: string;
+    // Announcement bar
+    announcementBarEnabled?: boolean;
+    announcementBarText?: string;
+    announcementBarColor?: string;
+    // Social links
+    socialInstagram?: string;
+    socialTwitter?: string;
+    socialTiktok?: string;
+    socialFacebook?: string;
+    // Store info
+    businessPhone?: string;
+    businessWhatsapp?: string;
+    businessAddress?: string;
+    // Footer
+    footerTagline?: string;
 }
 
 export interface Coupon {
@@ -111,6 +126,12 @@ export interface Profile {
     avatarUrl?: string;
     role: "customer" | "admin";
     createdAt: string;
+}
+
+export interface EnrichedProfile extends Profile {
+    totalSpent: number;
+    orderCount: number;
+    lastOrderDate: string | null;
 }
 
 export interface Page {

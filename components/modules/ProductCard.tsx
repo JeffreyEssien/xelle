@@ -5,9 +5,10 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { formatCurrency } from "@/lib/formatCurrency";
 import type { Product } from "@/types";
-import Badge from "@/components/ui/Badge";
 import { useCartStore } from "@/lib/cartStore";
 import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
+import { ShoppingBag, Heart } from "lucide-react";
+import { useState } from "react";
 
 interface ProductCardProps {
     product: Product;
@@ -15,66 +16,111 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
     const { addItem, open } = useCartStore();
+    const [justAdded, setJustAdded] = useState(false);
 
     const handleQuickAdd = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         addItem(product);
         open();
+        setJustAdded(true);
+        setTimeout(() => setJustAdded(false), 1500);
     };
 
+    const isSoldOut = product.stock === 0;
+    const isLowStock = product.stock <= LOW_STOCK_THRESHOLD && product.stock > 0;
+
     return (
-        <motion.div
-            whileHover={{ y: -4 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className="group relative"
-        >
+        <div className="group relative">
             <Link href={`/product/${product.slug}`} className="block">
-                <div className="relative aspect-[3/4] overflow-hidden rounded-sm bg-neutral-100">
+                {/* Image */}
+                <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-50">
                     <Image
                         src={product.images[0]}
                         alt={product.name}
                         fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
                     />
-                    {product.isNew && product.stock > LOW_STOCK_THRESHOLD && (
-                        <div className="absolute top-3 left-3">
-                            <Badge>New</Badge>
-                        </div>
+
+                    {/* Second image on hover (if available) */}
+                    {product.images[1] && (
+                        <Image
+                            src={product.images[1]}
+                            alt={`${product.name} hover`}
+                            fill
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                            className="object-cover absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out"
+                        />
                     )}
-                    {product.stock <= LOW_STOCK_THRESHOLD && product.stock > 0 && (
-                        <div className="absolute top-3 left-3">
-                            <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded-sm border border-amber-200">
+
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                    {/* Badges */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                        {product.isNew && product.stock > LOW_STOCK_THRESHOLD && (
+                            <span className="bg-brand-dark text-white text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full">
+                                New
+                            </span>
+                        )}
+                        {isLowStock && (
+                            <span className="bg-amber-500/90 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-semibold px-2.5 py-1 rounded-full">
                                 Only {product.stock} left
                             </span>
-                        </div>
-                    )}
-                    <QuickAddButton onClick={handleQuickAdd} disabled={product.stock === 0} />
+                        )}
+                        {isSoldOut && (
+                            <span className="bg-neutral-800/90 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full">
+                                Sold Out
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Wishlist button */}
+                    <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm text-brand-dark/40 hover:text-red-400 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-400 cursor-pointer shadow-sm hover:shadow-md"
+                    >
+                        <Heart size={14} strokeWidth={1.5} />
+                    </button>
+
+                    {/* Quick Add — desktop only */}
+                    <button
+                        type="button"
+                        onClick={handleQuickAdd}
+                        disabled={isSoldOut}
+                        className="hidden sm:flex absolute bottom-3 left-3 right-3 items-center justify-center gap-2 bg-white/95 backdrop-blur-md text-brand-dark text-xs font-semibold tracking-wide py-3 rounded-full opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:bg-white active:scale-[0.97]"
+                    >
+                        {isSoldOut ? (
+                            "Sold Out"
+                        ) : justAdded ? (
+                            <span className="flex items-center gap-1.5 text-brand-purple">
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                Added
+                            </span>
+                        ) : (
+                            <>
+                                <ShoppingBag size={13} />
+                                Add to Cart
+                            </>
+                        )}
+                    </button>
                 </div>
-                <div className="mt-4 space-y-1">
-                    <h3 className="font-serif text-base text-brand-dark group-hover:text-brand-purple transition-colors">
+
+                {/* Info */}
+                <div className="mt-3.5 space-y-1">
+                    <h3 className="font-sans text-sm text-brand-dark leading-snug line-clamp-1 group-hover:text-brand-purple transition-colors duration-300">
                         {product.name}
                     </h3>
-                    <p className="font-sans text-sm text-brand-dark/60">{product.category}</p>
-                    <p className="font-sans font-medium text-brand-dark">
+                    <p className="text-[10px] text-brand-dark/35 uppercase tracking-[0.15em]">
+                        {product.category}
+                    </p>
+                    <p className="font-sans text-sm font-medium text-brand-dark tracking-wide">
                         {formatCurrency(product.price)}
                     </p>
                 </div>
             </Link>
-        </motion.div>
-    );
-}
-
-function QuickAddButton({ onClick, disabled }: { onClick: (e: React.MouseEvent) => void; disabled: boolean }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            className="absolute bottom-3 left-3 right-3 bg-white/90 backdrop-blur-sm text-brand-dark text-sm font-medium py-2.5 rounded-sm opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-brand-dark hover:text-white disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-            {disabled ? "Sold Out" : "+ Add to Cart"}
-        </button>
+        </div>
     );
 }

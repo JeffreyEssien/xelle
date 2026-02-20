@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ADMIN_NAV_LINKS, SITE_NAME } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import {
+    LayoutGrid, Package, ClipboardList, Tag, Users, BarChart3,
+    FileText, Box, Ticket, Settings
+} from "lucide-react";
 
 export default function AdminSidebar() {
     const pathname = usePathname();
@@ -116,10 +120,13 @@ function NavLinks({ pathname }: { pathname: string }) {
                         <Link
                             href={link.href}
                             className={cn(
-                                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors",
+                                "flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors relative",
                                 active ? "bg-brand-purple text-white" : "text-white/60 hover:text-white hover:bg-white/5",
                             )}
                         >
+                            {active && (
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-white rounded-full" />
+                            )}
                             <NavIcon name={link.icon} />
                             {link.label}
                         </Link>
@@ -130,18 +137,22 @@ function NavLinks({ pathname }: { pathname: string }) {
     );
 }
 
+const ICON_MAP: Record<string, React.ElementType> = {
+    grid: LayoutGrid,
+    package: Package,
+    clipboard: ClipboardList,
+    tag: Tag,
+    users: Users,
+    chart: BarChart3,
+    file: FileText,
+    box: Box,
+    ticket: Ticket,
+    cog: Settings,
+};
+
 function NavIcon({ name }: { name: string }) {
-    const iconMap: Record<string, string> = {
-        grid: "▦",
-        package: "☐",
-        clipboard: "📋",
-        tag: "🏷️",
-        users: "👥",
-        chart: "📊",
-        file: "📄",
-        box: "📦",
-        ticket: "🎫",
-        cog: "⚙️"
-    };
-    return <span className="text-base">{iconMap[name] || "•"}</span>;
+    const Icon = ICON_MAP[name];
+    if (!Icon) return <span className="w-4 h-4" />;
+    return <Icon size={16} />;
 }
+

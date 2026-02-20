@@ -3,7 +3,7 @@ import { Order, Product, Profile, Coupon, InventoryLog, InventoryItem } from "@/
 export interface AnalyticsData {
     sales: {
         totalRevenue: number;
-        netRevenue: number; // Subtotal
+        netRevenue: number;
         shippingRevenue: number;
         aov: number;
         revenueByStatus: Record<string, number>;
@@ -15,12 +15,12 @@ export interface AnalyticsData {
         projectedMargin: number;
         lowStockCount: number;
         outOfStockCount: number;
-        shrinkageValue: number; // From logs
+        shrinkageValue: number;
         totalItems: number;
     };
     products: {
         topSelling: { id: string; name: string; quantity: number; revenue: number }[];
-        turnoverRate: number; // Sold / Avg Inventory (Simple: Sold / Current Total)
+        turnoverRate: number;
     };
     customers: {
         total: number;
@@ -32,20 +32,46 @@ export interface AnalyticsData {
     };
     marketing: {
         couponUsage: number;
-        discountImpact: number; // Avg discount %
+        discountImpact: number;
         topCoupons: { code: string; count: number }[];
     };
     operations: {
-        fulfillmentRate: number; // Shipped + Delivered / Total
-        backlog: number; // Pending
-        recentActivityCount: number; // Logs in last 24h
+        fulfillmentRate: number;
+        backlog: number;
+        recentActivityCount: number;
     };
     profit: {
         totalCOGS: number;
-        grossProfit: number; // Net Revenue - COGS
-        grossMargin: number; // %
+        grossProfit: number;
+        grossMargin: number;
         profitPerOrder: number;
     };
+    // NEW: 4 deep insights
+    revenueVelocity: {
+        avg7d: number;
+        avg30d: number;
+        trendPercent: number; // % change 7d vs 30d (positive = accelerating)
+    };
+    categoryPerformance: {
+        name: string;
+        revenue: number;
+        unitsSold: number;
+        aov: number;
+        orderCount: number;
+    }[];
+    conversionFunnel: {
+        pending: number;
+        shipped: number;
+        delivered: number;
+        pendingToShippedRate: number;
+        shippedToDeliveredRate: number;
+        overallConversionRate: number;
+    };
+    peakHours: {
+        hour: number;
+        count: number;
+        revenue: number;
+    }[];
 }
 
 export function calculateAnalytics(
@@ -240,9 +266,64 @@ export function calculateAnalytics(
             totalCOGS += itemCost * item.quantity;
         });
     });
-    const grossProfit = netRevenue - totalCOGS; // Net Revenue (Subtotal) - COGS
+    const grossProfit = netRevenue - totalCOGS;
     const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
     const profitPerOrder = orders.length > 0 ? grossProfit / orders.length : 0;
+
+
+    // --- 8. Revenue Velocity (NEW) ---
+    const rev7d = orders
+        .filter(o => new Date(o.createdAt).getTime() >= (now.getTime() - 7 * oneDay))
+        .reduce((sum, o) => sum + o.total, 0);
+    const rev30d = orders
+        .filter(o => new Date(o.createdAt).getTime() >= (now.getTime() - 30 * oneDay))
+        .reduce((sum, o) => sum + o.total, 0);
+    const avg7d = rev7d / 7;
+    const avg30d = rev30d / 30;
+    const velocityTrend = avg30d > 0 ? ((avg7d - avg30d) / avg30d) * 100 : 0;
+
+
+    // --- 9. Category Performance (NEW) ---
+    const categoryMap = new Map<string, { revenue: number; units: number; orders: Set<string> }>();
+    orders.forEach(order => {
+        order.items.forEach(item => {
+            const cat = item.product.category || "Uncategorized";
+            const current = categoryMap.get(cat) || { revenue: 0, units: 0, orders: new Set<string>() };
+            current.revenue += item.product.price * item.quantity;
+            current.units += item.quantity;
+            current.orders.add(order.id);
+            categoryMap.set(cat, current);
+        });
+    });
+    const categoryPerformance = Array.from(categoryMap.entries())
+        .map(([name, d]) => ({
+            name,
+            revenue: d.revenue,
+            unitsSold: d.units,
+            orderCount: d.orders.size,
+            aov: d.orders.size > 0 ? d.revenue / d.orders.size : 0,
+        }))
+        .sort((a, b) => b.revenue - a.revenue);
+
+
+    // --- 10. Conversion Funnel (NEW) ---
+    const pendingCount = orders.filter(o => o.status === 'pending').length;
+    const shippedCount = orders.filter(o => o.status === 'shipped').length;
+    const deliveredCount = orders.filter(o => o.status === 'delivered').length;
+    const totalOrders = orders.length;
+    const pendingToShippedRate = totalOrders > 0 ? ((shippedCount + deliveredCount) / totalOrders) * 100 : 0;
+    const shippedToDeliveredRate = (shippedCount + deliveredCount) > 0
+        ? (deliveredCount / (shippedCount + deliveredCount)) * 100 : 0;
+    const overallConversionRate = totalOrders > 0 ? (deliveredCount / totalOrders) * 100 : 0;
+
+
+    // --- 11. Peak Sales Hours (NEW) ---
+    const hourlyData = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0, revenue: 0 }));
+    orders.forEach(o => {
+        const h = new Date(o.createdAt).getHours();
+        hourlyData[h].count += 1;
+        hourlyData[h].revenue += o.total;
+    });
 
 
     return {
@@ -273,7 +354,7 @@ export function calculateAnalytics(
             returningRate: totalUnique > 0 ? (returning / totalUnique) * 100 : 0,
             clv: totalUnique > 0 ? totalRevenue / totalUnique : 0,
             registeredVsGuest: { registered: registeredCount, guest: totalUnique - registeredCount },
-            growthTrend: [] // implementing simple count for now
+            growthTrend: []
         },
         marketing: {
             couponUsage: couponUsageCount,
@@ -290,6 +371,22 @@ export function calculateAnalytics(
             grossProfit,
             grossMargin,
             profitPerOrder
-        }
+        },
+        revenueVelocity: {
+            avg7d,
+            avg30d,
+            trendPercent: velocityTrend,
+        },
+        categoryPerformance,
+        conversionFunnel: {
+            pending: pendingCount,
+            shipped: shippedCount,
+            delivered: deliveredCount,
+            pendingToShippedRate,
+            shippedToDeliveredRate,
+            overallConversionRate,
+        },
+        peakHours: hourlyData,
     };
 }
+

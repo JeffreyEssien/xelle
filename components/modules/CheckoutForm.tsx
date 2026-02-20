@@ -6,6 +6,7 @@ import { useCartStore } from "@/lib/cartStore";
 import { useOrderStore } from "@/lib/orderStore";
 import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD, WHATSAPP_NUMBER } from "@/lib/constants";
 import type { ShippingAddress, Order } from "@/types";
+import { MessageCircle, Clock, Lock, ChevronRight } from "lucide-react";
 
 interface CheckoutFormProps {
     onComplete: () => void;
@@ -30,7 +31,6 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
         setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
     };
 
-    // ... validate ...
     const validate = (): boolean => {
         const e: typeof errors = {};
         if (!form.firstName.trim()) e.firstName = "Required";
@@ -114,80 +114,122 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <SectionTitle>Contact Information</SectionTitle>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="First Name" name="firstName" value={form.firstName} error={errors.firstName} onChange={handleChange} />
-                <Field label="Last Name" name="lastName" value={form.lastName} error={errors.lastName} onChange={handleChange} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Email" name="email" type="email" value={form.email} error={errors.email} onChange={handleChange} />
-                <Field label="Phone" name="phone" type="tel" value={form.phone} error={errors.phone} onChange={handleChange} />
+        <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Contact */}
+            <div>
+                <SectionTitle step={1}>Contact Information</SectionTitle>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+                    <FloatingField label="First Name" name="firstName" value={form.firstName} error={errors.firstName} onChange={handleChange} />
+                    <FloatingField label="Last Name" name="lastName" value={form.lastName} error={errors.lastName} onChange={handleChange} />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <FloatingField label="Email" name="email" type="email" value={form.email} error={errors.email} onChange={handleChange} />
+                    <FloatingField label="Phone" name="phone" type="tel" value={form.phone} error={errors.phone} onChange={handleChange} />
+                </div>
             </div>
 
-            <SectionTitle>Shipping Address</SectionTitle>
-            <Field label="Street Address" name="address" value={form.address} error={errors.address} onChange={handleChange} />
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                <Field label="City" name="city" value={form.city} error={errors.city} onChange={handleChange} />
-                <Field label="State" name="state" value={form.state} error={errors.state} onChange={handleChange} />
-                <Field label="ZIP / Postal" name="zip" value={form.zip} error={errors.zip} onChange={handleChange} />
-            </div>
-            <Field label="Country" name="country" value={form.country} error={errors.country} onChange={handleChange} />
-
-            <SectionTitle>Payment Method</SectionTitle>
-            <div className="space-y-3">
-                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'whatsapp' ? 'border-brand-purple bg-brand-purple/5' : 'border-brand-lilac/20 hover:border-brand-purple/50'}`}>
-                    <input
-                        type="radio"
-                        name="payment"
-                        value="whatsapp"
-                        checked={paymentMethod === 'whatsapp'}
-                        onChange={() => setPaymentMethod('whatsapp')}
-                        className="mt-1"
-                    />
-                    <div>
-                        <span className="block font-medium text-brand-dark">Pay on WhatsApp</span>
-                        <span className="block text-sm text-brand-dark/60">Chat with us to complete your payment. Fast & secure.</span>
+            {/* Shipping */}
+            <div>
+                <SectionTitle step={2}>Shipping Address</SectionTitle>
+                <div className="mt-5 space-y-4">
+                    <FloatingField label="Street Address" name="address" value={form.address} error={errors.address} onChange={handleChange} />
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <FloatingField label="City" name="city" value={form.city} error={errors.city} onChange={handleChange} />
+                        <FloatingField label="State" name="state" value={form.state} error={errors.state} onChange={handleChange} />
+                        <FloatingField label="ZIP / Postal" name="zip" value={form.zip} error={errors.zip} onChange={handleChange} />
                     </div>
-                </label>
-
-                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${paymentMethod === 'manual' ? 'border-brand-purple bg-brand-purple/5' : 'border-brand-lilac/20 hover:border-brand-purple/50'}`}>
-                    <input
-                        type="radio"
-                        name="payment"
-                        value="manual"
-                        checked={paymentMethod === 'manual'}
-                        onChange={() => setPaymentMethod('manual')}
-                        className="mt-1"
-                    />
-                    <div>
-                        <span className="block font-medium text-brand-dark">Wait for Admin Confirmation</span>
-                        <span className="block text-sm text-brand-dark/60">Place order now and wait for an admin to contact you for payment.</span>
-                    </div>
-                </label>
+                    <FloatingField label="Country" name="country" value={form.country} error={errors.country} onChange={handleChange} />
+                </div>
             </div>
 
-            <Button type="submit" size="lg" className="w-full" disabled={loading}>
-                {loading ? "Processing..." : (paymentMethod === 'whatsapp' ? "Place Order & Chat on WhatsApp" : "Place Order")}
+            {/* Payment */}
+            <div>
+                <SectionTitle step={3}>Payment Method</SectionTitle>
+                <div className="space-y-3 mt-5">
+                    <label className={`flex items-start gap-4 p-4 border rounded-xl cursor-pointer transition-all duration-300 ${paymentMethod === 'whatsapp' ? 'border-brand-purple bg-brand-purple/[0.04] shadow-sm shadow-brand-purple/5' : 'border-brand-dark/8 hover:border-brand-purple/30'}`}>
+                        <input
+                            type="radio"
+                            name="payment"
+                            value="whatsapp"
+                            checked={paymentMethod === 'whatsapp'}
+                            onChange={() => setPaymentMethod('whatsapp')}
+                            className="mt-1 accent-brand-purple"
+                        />
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                                <MessageCircle size={16} className="text-brand-purple" />
+                                <span className="font-medium text-brand-dark text-sm">Pay on WhatsApp</span>
+                            </div>
+                            <span className="block text-xs text-brand-dark/45 mt-1">Chat with us to complete your payment. Fast & secure.</span>
+                        </div>
+                    </label>
+
+                    <label className={`flex items-start gap-4 p-4 border rounded-xl cursor-pointer transition-all duration-300 ${paymentMethod === 'manual' ? 'border-brand-purple bg-brand-purple/[0.04] shadow-sm shadow-brand-purple/5' : 'border-brand-dark/8 hover:border-brand-purple/30'}`}>
+                        <input
+                            type="radio"
+                            name="payment"
+                            value="manual"
+                            checked={paymentMethod === 'manual'}
+                            onChange={() => setPaymentMethod('manual')}
+                            className="mt-1 accent-brand-purple"
+                        />
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                                <Clock size={16} className="text-brand-purple" />
+                                <span className="font-medium text-brand-dark text-sm">Wait for Admin Confirmation</span>
+                            </div>
+                            <span className="block text-xs text-brand-dark/45 mt-1">Place order now and wait for an admin to contact you for payment.</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            {/* Security notice */}
+            <div className="flex items-center gap-2 text-[10px] text-brand-dark/30">
+                <Lock size={10} />
+                <span>Your information is protected and secure</span>
+            </div>
+
+            <Button type="submit" size="lg" className="w-full" loading={loading}>
+                {paymentMethod === 'whatsapp' ? "Place Order & Chat on WhatsApp" : "Place Order"}
             </Button>
         </form>
     );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-    return <h2 className="font-serif text-xl text-brand-dark pt-2">{children}</h2>;
+function SectionTitle({ children, step }: { children: React.ReactNode; step: number }) {
+    return (
+        <div className="flex items-center gap-3">
+            <span className="w-7 h-7 rounded-full bg-brand-dark text-white text-xs font-bold flex items-center justify-center shrink-0">
+                {step}
+            </span>
+            <h2 className="font-serif text-lg text-brand-dark">{children}</h2>
+        </div>
+    );
 }
 
-function Field({ label, name, type = "text", value, error, onChange }: {
+function FloatingField({ label, name, type = "text", value, error, onChange }: {
     label: string; name: string; type?: string; value: string; error?: string;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
     return (
-        <div>
-            <label htmlFor={name} className="block text-xs text-brand-dark/60 mb-1">{label}</label>
-            <input id={name} name={name} type={type} value={value} onChange={onChange}
-                className={`w-full border rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30 ${error ? "border-red-400" : "border-brand-lilac/20"}`} />
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        <div className="relative">
+            <input
+                id={name}
+                name={name}
+                type={type}
+                value={value}
+                onChange={onChange}
+                placeholder=" "
+                className={`peer w-full border rounded-xl px-4 pt-5 pb-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/20 focus:border-brand-purple/40 transition-all bg-white ${error ? "border-red-300 focus:ring-red-200 focus:border-red-400" : "border-brand-dark/10"}`}
+            />
+            <label
+                htmlFor={name}
+                className="absolute left-4 top-2 text-[10px] text-brand-dark/40 transition-all pointer-events-none peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-sm peer-focus:top-2 peer-focus:text-[10px] peer-focus:text-brand-purple uppercase tracking-wide font-medium"
+            >
+                {label}
+            </label>
+            {error && <p className="text-red-500 text-[10px] mt-1 ml-1">{error}</p>}
         </div>
     );
 }

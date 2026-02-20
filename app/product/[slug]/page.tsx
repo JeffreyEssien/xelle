@@ -19,8 +19,8 @@ export default async function ProductPage({ params }: Props) {
     return (
         <>
             <Header />
-            <main className="max-w-7xl mx-auto px-6 py-12">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <main className="max-w-7xl mx-auto px-6 pt-4 pb-20">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
                     <ProductImageGallery images={product.images} name={product.name} />
                     <ProductDetails product={product} />
                 </div>

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Header from "@/components/modules/Header";
 import Footer from "@/components/modules/Footer";
 import { getProducts, getCategories } from "@/lib/queries";
@@ -14,8 +15,10 @@ export default async function ShopPage() {
     return (
         <>
             <Header />
-            <main className="max-w-7xl mx-auto px-6 py-12">
-                <ShopContent products={products} categories={categories} />
+            <main className="max-w-7xl mx-auto px-6 pt-6 pb-16">
+                <Suspense>
+                    <ShopContent products={products} categories={categories} />
+                </Suspense>
             </main>
             <Footer />
         </>

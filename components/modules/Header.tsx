@@ -2,32 +2,75 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { NAV_LINKS, SITE_NAME } from "@/lib/constants";
 import { useCartStore } from "@/lib/cartStore";
 import CartDrawer from "@/components/modules/CartDrawer";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { getSiteSettings } from "@/lib/queries";
 import type { SiteSettings } from "@/types";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, X, ShoppingBag, Menu } from "lucide-react";
 
 export default function Header() {
     const { totalItems, toggle } = useCartStore();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const [settings, setSettings] = useState<SiteSettings | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
     const count = totalItems();
+    const router = useRouter();
+    const searchRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         setMounted(true);
         getSiteSettings().then(setSettings).catch(() => { });
     }, []);
 
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 20);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
+    useEffect(() => {
+        if (searchOpen && searchRef.current) searchRef.current.focus();
+    }, [searchOpen]);
+
+    // Lock body scroll when mobile menu is open
+    useEffect(() => {
+        if (mobileOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+        return () => { document.body.style.overflow = ""; };
+    }, [mobileOpen]);
+
     const displayName = settings?.siteName || SITE_NAME;
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        const q = searchQuery.trim();
+        if (!q) return;
+        router.push(`/shop?q=${encodeURIComponent(q)}`);
+        setSearchOpen(false);
+        setSearchQuery("");
+    };
 
     return (
         <>
-            <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-brand-lilac/20">
-                <nav className="mx-auto max-w-7xl px-6 flex items-center justify-between h-16">
-                    <Link href="/" className="font-serif text-2xl tracking-widest text-brand-dark flex items-center gap-2">
+            <header
+                className={`sticky top-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled
+                    ? "glass-panel shadow-sm"
+                    : "bg-transparent"
+                    }`}
+            >
+                <nav className={`relative mx-auto max-w-7xl px-6 flex items-center justify-between transition-all duration-500 ${scrolled ? "h-16" : "h-20"}`}>
+                    {/* Logo */}
+                    <Link href="/" className="font-serif text-2xl tracking-widest text-brand-dark flex items-center gap-2 hover:opacity-80 transition-opacity">
                         {settings?.logoUrl ? (
                             <div className="relative h-8 w-auto aspect-[3/1]">
                                 <Image
@@ -39,88 +82,167 @@ export default function Header() {
                                 />
                             </div>
                         ) : (
-                            displayName
+                            <span className="relative">
+                                {displayName}
+                                <span className="absolute -bottom-1 left-0 w-0 group-hover:w-full h-px bg-brand-purple transition-all duration-500" />
+                            </span>
                         )}
                     </Link>
-                    <DesktopNav />
-                    <div className="flex items-center gap-4">
-                        <CartButton count={count} onClick={toggle} mounted={mounted} />
-                        <MobileMenuButton open={mobileOpen} onClick={() => setMobileOpen(!mobileOpen)} />
+
+                    {/* Desktop Nav — centered absolutely */}
+                    <ul className="hidden md:flex items-center gap-8 absolute left-1/2 -translate-x-1/2">
+                        {NAV_LINKS.map((link) => (
+                            <li key={link.href}>
+                                <Link
+                                    href={link.href}
+                                    className="group relative text-sm font-sans text-brand-dark/70 hover:text-brand-dark transition-colors duration-300 py-2"
+                                >
+                                    {link.label}
+                                    <span className="absolute -bottom-0.5 left-0 w-full h-[1.5px] bg-brand-purple origin-left scale-x-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-x-100" />
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                        {/* Search */}
+                        <AnimatePresence mode="wait">
+                            {searchOpen ? (
+                                <motion.form
+                                    key="search-form"
+                                    initial={{ width: 0, opacity: 0 }}
+                                    animate={{ width: "auto", opacity: 1 }}
+                                    exit={{ width: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                                    onSubmit={handleSearch}
+                                    className="flex items-center gap-1 overflow-hidden"
+                                >
+                                    <input
+                                        ref={searchRef}
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search products..."
+                                        className="w-36 sm:w-48 border border-brand-lilac/30 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/20 focus:border-brand-purple/40 bg-white/80 backdrop-blur-sm transition-all"
+                                        onBlur={() => { if (!searchQuery) setSearchOpen(false); }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                                        className="p-2 text-brand-dark/40 hover:text-brand-dark rounded-full hover:bg-brand-lilac/10 transition-colors cursor-pointer"
+                                        aria-label="Close search"
+                                    >
+                                        <X size={16} />
+                                    </button>
+                                </motion.form>
+                            ) : (
+                                <motion.button
+                                    key="search-btn"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    type="button"
+                                    onClick={() => setSearchOpen(true)}
+                                    className="p-2.5 text-brand-dark/60 hover:text-brand-purple rounded-full hover:bg-brand-lilac/10 transition-all duration-300 cursor-pointer"
+                                    aria-label="Search"
+                                >
+                                    <Search size={18} strokeWidth={1.5} />
+                                </motion.button>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Cart */}
+                        <button
+                            type="button"
+                            onClick={toggle}
+                            className="relative p-2.5 text-brand-dark/60 hover:text-brand-purple rounded-full hover:bg-brand-lilac/10 transition-all duration-300 cursor-pointer"
+                            aria-label="Open cart"
+                        >
+                            <ShoppingBag size={18} strokeWidth={1.5} />
+                            <AnimatePresence>
+                                {mounted && count > 0 && (
+                                    <motion.span
+                                        key={count}
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        exit={{ scale: 0 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                        className="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 rounded-full bg-brand-purple text-white text-[10px] font-bold flex items-center justify-center shadow-lg shadow-brand-purple/30"
+                                    >
+                                        {count}
+                                    </motion.span>
+                                )}
+                            </AnimatePresence>
+                        </button>
+
+                        {/* Mobile Menu Toggle */}
+                        <button
+                            type="button"
+                            onClick={() => setMobileOpen(!mobileOpen)}
+                            className="md:hidden p-2.5 text-brand-dark/60 hover:text-brand-purple rounded-full hover:bg-brand-lilac/10 transition-all cursor-pointer"
+                            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+                        >
+                            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+                        </button>
                     </div>
                 </nav>
-                {mobileOpen && <MobileNav onClose={() => setMobileOpen(false)} />}
             </header>
+
+            {/* Mobile Menu Overlay */}
+            <AnimatePresence>
+                {mobileOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            onClick={() => setMobileOpen(false)}
+                            className="fixed inset-0 z-[45] bg-black/20 backdrop-blur-sm md:hidden"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                            className="fixed top-0 left-0 right-0 z-[46] bg-white pt-24 pb-8 px-8 md:hidden shadow-2xl border-b border-brand-lilac/15"
+                        >
+                            <nav>
+                                <ul className="space-y-1">
+                                    {NAV_LINKS.map((link, i) => (
+                                        <motion.li
+                                            key={link.href}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: 0.05 + i * 0.08, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                                        >
+                                            <Link
+                                                href={link.href}
+                                                onClick={() => setMobileOpen(false)}
+                                                className="block py-3 text-2xl font-serif text-brand-dark/80 hover:text-brand-purple transition-colors"
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        </motion.li>
+                                    ))}
+                                </ul>
+                            </nav>
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ delay: 0.3 }}
+                                className="mt-8 pt-6 border-t border-brand-lilac/15"
+                            >
+                                <p className="text-xs text-brand-dark/30 uppercase tracking-[0.25em]">
+                                    {displayName} — Luxury Redefined
+                                </p>
+                            </motion.div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
             <CartDrawer />
         </>
-    );
-}
-
-function DesktopNav() {
-    return (
-        <ul className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
-                <li key={link.href}>
-                    <Link
-                        href={link.href}
-                        className="text-sm font-sans text-brand-dark/70 hover:text-brand-purple transition-colors"
-                    >
-                        {link.label}
-                    </Link>
-                </li>
-            ))}
-        </ul>
-    );
-}
-
-function CartButton({ count, onClick, mounted }: { count: number; onClick: () => void; mounted: boolean }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="relative p-2 text-brand-dark hover:text-brand-purple transition-colors cursor-pointer"
-            aria-label="Open cart"
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-            </svg>
-            {mounted && count > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-brand-purple text-white text-[10px] flex items-center justify-center">
-                    {count}
-                </span>
-            )}
-        </button>
-    );
-}
-
-function MobileMenuButton({ open, onClick }: { open: boolean; onClick: () => void }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="md:hidden p-2 text-brand-dark cursor-pointer"
-            aria-label={open ? "Close menu" : "Open menu"}
-        >
-            {open ? "✕" : "☰"}
-        </button>
-    );
-}
-
-function MobileNav({ onClose }: { onClose: () => void }) {
-    return (
-        <div className="md:hidden border-t border-brand-lilac/20 bg-white px-6 py-4">
-            <ul className="space-y-3">
-                {NAV_LINKS.map((link) => (
-                    <li key={link.href}>
-                        <Link
-                            href={link.href}
-                            onClick={onClose}
-                            className="block text-brand-dark/70 hover:text-brand-purple transition-colors"
-                        >
-                            {link.label}
-                        </Link>
-                    </li>
-                ))}
-            </ul>
-        </div>
     );
 }
