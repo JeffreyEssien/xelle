@@ -2,7 +2,8 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Order } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
-import { updateOrderStatus, updateOrderNotes } from "@/lib/queries";
+import { updateOrderStatus, updateOrderNotes, updatePaymentInfo } from "@/lib/queries";
+import { WHATSAPP_NUMBER } from "@/lib/constants";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 
@@ -23,6 +24,7 @@ export default function OrderDetailPanel({ order, onClose, onUpdate }: OrderDeta
     const [notes, setNotes] = useState(order.notes || "");
     const [isSavingNotes, setIsSavingNotes] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const [isApprovingPayment, setIsApprovingPayment] = useState(false);
 
     const handleStatusUpdate = async (status: Order["status"]) => {
         if (!confirm(`Mark order as ${status}?`)) return;
@@ -48,6 +50,42 @@ export default function OrderDetailPanel({ order, onClose, onUpdate }: OrderDeta
         } finally {
             setIsSavingNotes(false);
         }
+    };
+
+    const handleApprovePayment = async () => {
+        if (!confirm("Approve this payment? This confirms you've received the bank transfer.")) return;
+        setIsApprovingPayment(true);
+        try {
+            await updatePaymentInfo(order.id, { paymentStatus: "payment_confirmed" });
+            if (onUpdate) onUpdate();
+        } catch (error) {
+            alert("Failed to approve payment");
+        } finally {
+            setIsApprovingPayment(false);
+        }
+    };
+
+    const openWhatsApp = (message: string) => {
+        const phone = order.phone.replace(/^0/, "234").replace(/\D/g, "");
+        window.open(
+            `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+            "_blank"
+        );
+    };
+
+    const messageCustomer = () => {
+        openWhatsApp(
+            `Hi ${order.customerName.split(" ")[0]}! 👋\n\nRegarding your XELLÉ order *${order.id}*, `
+        );
+    };
+
+    const sendWhatsAppStatusUpdate = (status: string) => {
+        const messages: Record<string, string> = {
+            shipped: `Hi ${order.customerName.split(" ")[0]}! 📦\n\nGreat news! Your order *${order.id}* has been shipped and is on its way to you.\n\n*Order Total:* ₦${order.total.toLocaleString()}\n*Shipping To:* ${order.shippingAddress.address}, ${order.shippingAddress.city}\n\nWe'll let you know once it's delivered. Thank you for shopping with XELLÉ! 💜`,
+            delivered: `Hi ${order.customerName.split(" ")[0]}! 🎉\n\nYour order *${order.id}* has been delivered!\n\nWe hope you love your new items. If you have any questions, feel free to reach out.\n\nThank you for shopping with XELLÉ! 💜`,
+            payment_confirmed: `Hi ${order.customerName.split(" ")[0]}! ✅\n\nYour payment for order *${order.id}* (₦${order.total.toLocaleString()}) has been *confirmed*!\n\nWe're now preparing your order for shipment. We'll notify you once it ships.\n\nThank you for shopping with XELLÉ! 💜`,
+        };
+        openWhatsApp(messages[status] || `Hi! Regarding your order ${order.id}...`);
     };
 
     return (
@@ -97,13 +135,18 @@ export default function OrderDetailPanel({ order, onClose, onUpdate }: OrderDeta
                                     Mark Delivered
                                 </Button>
                             )}
+                            <button
+                                onClick={messageCustomer}
+                                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-[#25D366] bg-[#25D366]/8 hover:bg-[#25D366]/15 border border-[#25D366]/20 transition-colors cursor-pointer"
+                            >
+                                💬 Message Customer
+                            </button>
                             <Button
                                 size="sm"
                                 variant="outline"
                                 className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
                                 onClick={() => {
                                     if (confirm("Are you sure you want to cancel this order?")) {
-                                        // TODO: Implement cancel logic (maybe just a status?)
                                         alert("Cancel logic not yet implemented in DB");
                                     }
                                 }}
@@ -112,12 +155,96 @@ export default function OrderDetailPanel({ order, onClose, onUpdate }: OrderDeta
                             </Button>
                         </div>
 
+                        {/* WhatsApp Status Notifications */}
+                        {(order.status === "shipped" || order.status === "delivered" || order.paymentStatus === "payment_confirmed") && (
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-semibold text-brand-dark/40 uppercase tracking-wider">WhatsApp Notifications</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {order.paymentStatus === "payment_confirmed" && (
+                                        <button
+                                            onClick={() => sendWhatsAppStatusUpdate("payment_confirmed")}
+                                            className="text-xs px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors cursor-pointer"
+                                        >
+                                            ✅ Send Payment Confirmed
+                                        </button>
+                                    )}
+                                    {order.status === "shipped" && (
+                                        <button
+                                            onClick={() => sendWhatsAppStatusUpdate("shipped")}
+                                            className="text-xs px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+                                        >
+                                            📦 Send Shipped Update
+                                        </button>
+                                    )}
+                                    {order.status === "delivered" && (
+                                        <button
+                                            onClick={() => sendWhatsAppStatusUpdate("delivered")}
+                                            className="text-xs px-3 py-1.5 rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors cursor-pointer"
+                                        >
+                                            🎉 Send Delivered Update
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <Section title="Status">
                             <Badge variant={statusVariant[order.status]}>{order.status}</Badge>
                             <p className="text-xs text-brand-dark/50 mt-1">
                                 Placed on {new Date(order.createdAt).toLocaleString()}
                             </p>
                         </Section>
+
+                        {/* Payment Info */}
+                        {order.paymentMethod && (
+                            <Section title="Payment">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-brand-dark/50">Method:</span>
+                                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${order.paymentMethod === "bank_transfer"
+                                            ? "bg-blue-50 text-blue-700"
+                                            : "bg-green-50 text-green-700"
+                                            }`}>
+                                            {order.paymentMethod === "bank_transfer" ? "Bank Transfer" : "WhatsApp"}
+                                        </span>
+                                    </div>
+                                    {order.senderName && (
+                                        <div>
+                                            <span className="text-xs text-brand-dark/50">Sender:</span>
+                                            <p className="text-sm text-brand-dark font-medium">{order.senderName}</p>
+                                        </div>
+                                    )}
+                                    {order.paymentStatus && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-brand-dark/50">Payment:</span>
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${order.paymentStatus === "payment_confirmed"
+                                                ? "bg-emerald-50 text-emerald-700"
+                                                : order.paymentStatus === "payment_submitted"
+                                                    ? "bg-amber-50 text-amber-700"
+                                                    : "bg-red-50 text-red-700"
+                                                }`}>
+                                                {order.paymentStatus === "payment_confirmed"
+                                                    ? "✓ Confirmed"
+                                                    : order.paymentStatus === "payment_submitted"
+                                                        ? "⏳ Awaiting Approval"
+                                                        : "⏳ Awaiting Payment"}
+                                            </span>
+                                        </div>
+                                    )}
+                                    {order.paymentMethod === "bank_transfer" &&
+                                        order.paymentStatus === "payment_submitted" && (
+                                            <Button
+                                                size="sm"
+                                                onClick={handleApprovePayment}
+                                                disabled={isApprovingPayment}
+                                                className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700"
+                                            >
+                                                {isApprovingPayment ? "Approving..." : "✓ Approve Payment"}
+                                            </Button>
+                                        )}
+                                </div>
+                            </Section>
+                        )}
 
                         <Section title="Internal Notes">
                             <textarea

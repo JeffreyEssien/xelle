@@ -75,6 +75,9 @@ export interface Order {
     notes?: string;
     couponCode?: string;
     discountTotal?: number;
+    paymentMethod?: "whatsapp" | "bank_transfer";
+    senderName?: string;
+    paymentStatus?: "awaiting_payment" | "payment_submitted" | "payment_confirmed";
 }
 
 export interface SiteSettings {

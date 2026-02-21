@@ -9,7 +9,7 @@ import type { ShippingAddress, Order } from "@/types";
 import { MessageCircle, Clock, Lock, ChevronRight } from "lucide-react";
 
 interface CheckoutFormProps {
-    onComplete: () => void;
+    onComplete: (orderInfo?: { orderId: string; total: number; paymentMethod: "whatsapp" | "bank_transfer" }) => void;
 }
 
 const emptyAddress: ShippingAddress = {
@@ -66,7 +66,9 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
             createdAt: new Date().toISOString(),
             shippingAddress: { ...form },
             couponCode: couponCode || undefined,
-            discountTotal: discountAmount > 0 ? discountAmount : undefined
+            discountTotal: discountAmount > 0 ? discountAmount : undefined,
+            paymentMethod: paymentMethod === "whatsapp" ? "whatsapp" : "bank_transfer",
+            paymentStatus: paymentMethod === "manual" ? "awaiting_payment" : undefined,
         };
 
         try {
@@ -103,7 +105,11 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
                 );
                 window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
             } else {
-                onComplete();
+                onComplete({
+                    orderId: order.id,
+                    total: order.total,
+                    paymentMethod: "bank_transfer",
+                });
             }
 
         } catch (err) {

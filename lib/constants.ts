@@ -27,3 +27,8 @@ export const ADMIN_NAV_LINKS = [
 ] as const;
 
 export const WHATSAPP_NUMBER = "2349161265463";
+
+// Bank Transfer Details
+export const BANK_NAME = "Pocketapp";
+export const BANK_ACCOUNT_NUMBER = "9765752252";
+export const BANK_ACCOUNT_NAME = "Excellence Okey Orji";

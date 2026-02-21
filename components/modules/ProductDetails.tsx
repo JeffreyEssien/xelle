@@ -7,8 +7,9 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import { useCartStore } from "@/lib/cartStore";
 import Button from "@/components/ui/Button";
 import StockIndicator from "@/components/ui/StockIndicator";
-import { ShoppingBag, Truck, Shield, RotateCcw, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { ShoppingBag, Truck, Shield, RotateCcw, Check, ChevronDown, ChevronRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { WHATSAPP_NUMBER } from "@/lib/constants";
 
 interface ProductDetailsProps {
     product: Product;
@@ -68,8 +69,8 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={`pb-3 text-xs font-semibold uppercase tracking-[0.15em] transition-colors relative cursor-pointer ${activeTab === tab
-                                    ? "text-brand-dark"
-                                    : "text-brand-dark/30 hover:text-brand-dark/60"
+                                ? "text-brand-dark"
+                                : "text-brand-dark/30 hover:text-brand-dark/60"
                                 }`}
                         >
                             {tab}
@@ -123,8 +124,8 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                                 key={v.name}
                                 onClick={() => setSelectedVariant(v)}
                                 className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 cursor-pointer ${selectedVariant?.name === v.name
-                                        ? "bg-brand-dark text-white shadow-md"
-                                        : "bg-neutral-50 text-brand-dark/70 hover:bg-neutral-100 border border-brand-dark/8 hover:border-brand-dark/20"
+                                    ? "bg-brand-dark text-white shadow-md"
+                                    : "bg-neutral-50 text-brand-dark/70 hover:bg-neutral-100 border border-brand-dark/8 hover:border-brand-dark/20"
                                     }`}
                             >
                                 {v.name}
@@ -160,6 +161,20 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                     )}
                 </span>
             </Button>
+
+            {/* Ask About This on WhatsApp */}
+            <button
+                onClick={() => {
+                    const message = encodeURIComponent(
+                        `Hi! I'm interested in *${product.name}* (${formatCurrency(currentPrice)}). Is it available?`
+                    );
+                    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${message}`, "_blank");
+                }}
+                className="w-full sm:w-auto mt-3 flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-[#25D366] bg-[#25D366]/8 hover:bg-[#25D366]/15 border border-[#25D366]/20 hover:border-[#25D366]/40 transition-all duration-200 cursor-pointer"
+            >
+                <MessageCircle size={16} fill="#25D366" strokeWidth={0} />
+                Ask About This on WhatsApp
+            </button>
 
             {/* Trust badges */}
             <div className="mt-8 grid grid-cols-3 gap-2.5">

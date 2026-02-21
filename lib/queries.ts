@@ -33,6 +33,9 @@ interface DbOrder {
     notes?: string;
     coupon_code?: string;
     discount_total?: number;
+    payment_method?: string;
+    sender_name?: string;
+    payment_status?: string;
 }
 
 function toProduct(row: DbProduct): Product {
@@ -69,6 +72,9 @@ function toOrder(row: DbOrder): Order {
         notes: row.notes,
         couponCode: row.coupon_code || undefined,
         discountTotal: row.discount_total ? Number(row.discount_total) : undefined,
+        paymentMethod: (row.payment_method as Order["paymentMethod"]) || undefined,
+        senderName: row.sender_name || undefined,
+        paymentStatus: (row.payment_status as Order["paymentStatus"]) || undefined,
     };
 }
 
@@ -210,6 +216,18 @@ export async function getOrders(): Promise<Order[]> {
     return (data as DbOrder[]).map(toOrder);
 }
 
+export async function getOrderById(id: string): Promise<Order | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", id)
+        .single();
+    if (error) return null;
+    return toOrder(data as DbOrder);
+}
+
 export async function createOrder(order: Order): Promise<void> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error("Database not available");
@@ -237,7 +255,7 @@ export async function createOrder(order: Order): Promise<void> {
     }
 
     // Insert Order with proper coupon columns (no JSON hack)
-    const { error } = await supabase.from("orders").insert({
+    const insertData: any = {
         id: order.id,
         customer_name: order.customerName,
         email: order.email,
@@ -252,8 +270,33 @@ export async function createOrder(order: Order): Promise<void> {
         coupon_code: order.couponCode || null,
         discount_total: order.discountTotal || 0,
         created_at: new Date().toISOString()
-    });
+    };
 
+    // Add payment fields only if they have values (avoids errors if columns don't exist yet)
+    if (order.paymentMethod) insertData.payment_method = order.paymentMethod;
+    if (order.paymentStatus) insertData.payment_status = order.paymentStatus;
+    if (order.senderName) insertData.sender_name = order.senderName;
+
+    const { error } = await supabase.from("orders").insert(insertData);
+
+    if (error) throw error;
+}
+
+export async function updatePaymentInfo(
+    orderId: string,
+    updates: { senderName?: string; paymentStatus?: Order["paymentStatus"] }
+): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const dbUpdates: any = {};
+    if (updates.senderName !== undefined) dbUpdates.sender_name = updates.senderName;
+    if (updates.paymentStatus !== undefined) dbUpdates.payment_status = updates.paymentStatus;
+
+    const { error } = await supabase
+        .from("orders")
+        .update(dbUpdates)
+        .eq("id", orderId);
     if (error) throw error;
 }
 
