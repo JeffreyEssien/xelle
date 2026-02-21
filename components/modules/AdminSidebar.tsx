@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { ADMIN_NAV_LINKS, SITE_NAME } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+import NotificationBell from "@/components/modules/NotificationBell";
 import {
     LayoutGrid, Package, ClipboardList, Tag, Users, BarChart3,
     FileText, Box, Ticket, Settings
@@ -36,16 +37,19 @@ export default function AdminSidebar() {
                 <Link href="/admin" className="font-serif text-lg text-white tracking-widest">
                     {SITE_NAME}
                 </Link>
-                <button
-                    type="button"
-                    onClick={() => setOpen(true)}
-                    className="text-white/80 hover:text-white p-1 cursor-pointer"
-                    aria-label="Open menu"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                    </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                    <NotificationBell />
+                    <button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        className="text-white/80 hover:text-white p-1 cursor-pointer"
+                        aria-label="Open menu"
+                    >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                        </svg>
+                    </button>
+                </div>
             </header>
 
             {/* ── Mobile Drawer Overlay ── */}
@@ -92,9 +96,12 @@ export default function AdminSidebar() {
             {/* ── Desktop Sidebar (unchanged) ── */}
             <aside className="hidden lg:flex flex-col w-60 shrink-0 bg-brand-dark min-h-screen">
                 <div className="px-6 py-6 border-b border-white/10">
-                    <Link href="/admin" className="font-serif text-xl text-white tracking-widest">
-                        {SITE_NAME}
-                    </Link>
+                    <div className="flex items-center justify-between">
+                        <Link href="/admin" className="font-serif text-xl text-white tracking-widest">
+                            {SITE_NAME}
+                        </Link>
+                        <NotificationBell />
+                    </div>
                     <p className="text-xs text-white/40 mt-1">Admin Panel</p>
                 </div>
                 <nav className="flex-1 px-4 py-6">

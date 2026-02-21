@@ -1,13 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { WHATSAPP_NUMBER } from "@/lib/constants";
 import { MessageCircle, X } from "lucide-react";
 
 export default function WhatsAppFloat() {
+    const pathname = usePathname();
     const [showTooltip, setShowTooltip] = useState(false);
     const [hasScrolled, setHasScrolled] = useState(false);
+
+    // Don't show on admin pages
+    if (pathname?.startsWith("/admin")) return null;
 
     useEffect(() => {
         const handleScroll = () => setHasScrolled(window.scrollY > 300);
