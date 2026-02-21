@@ -38,10 +38,10 @@ export default function FilterSidebar({
             <CollapsibleSection title="Price" defaultOpen>
                 <div className="flex flex-wrap gap-2">
                     {[
-                        { label: "All Prices", value: [0, 999] as [number, number] },
+                        { label: "All Prices", value: [0, 9999999] as [number, number] },
                         { label: "Under ₦150", value: [0, 150] as [number, number] },
                         { label: "₦150 – ₦300", value: [150, 300] as [number, number] },
-                        { label: "Over ₦300", value: [300, 999] as [number, number] },
+                        { label: "Over ₦300", value: [300, 9999999] as [number, number] },
                     ].map((p) => (
                         <FilterChip
                             key={p.label}
@@ -104,8 +104,8 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
             type="button"
             onClick={onClick}
             className={`px-3.5 py-1.5 text-xs rounded-full transition-all duration-300 cursor-pointer ${active
-                    ? "bg-brand-purple text-white font-medium shadow-sm shadow-brand-purple/20"
-                    : "bg-neutral-50 text-brand-dark/55 hover:bg-neutral-100 hover:text-brand-dark border border-transparent hover:border-brand-lilac/20"
+                ? "bg-brand-purple text-white font-medium shadow-sm shadow-brand-purple/20"
+                : "bg-neutral-50 text-brand-dark/55 hover:bg-neutral-100 hover:text-brand-dark border border-transparent hover:border-brand-lilac/20"
                 }`}
         >
             {label}

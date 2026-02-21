@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import Button from "@/components/ui/Button";
 import AddProductForm from "@/components/modules/AddProductForm";
 import { deleteProduct } from "@/lib/queries";
+import { revalidateShop } from "@/app/actions";
 
 interface AdminProductsContentProps {
     products: Product[];
@@ -41,6 +42,7 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
         if (confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
             try {
                 await deleteProduct(id);
+                await revalidateShop();
                 alert("Product deleted successfully");
                 window.location.reload();
             } catch (error) {

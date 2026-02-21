@@ -11,6 +11,8 @@ import { getSiteSettings } from "@/lib/queries";
 import type { SiteSettings } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ShoppingBag, Menu } from "lucide-react";
+import ScrollProgress from "@/components/ui/ScrollProgress";
+import { formatCurrency } from "@/lib/formatCurrency";
 
 export default function Header() {
     const { totalItems, toggle } = useCartStore();
@@ -23,6 +25,11 @@ export default function Header() {
     const count = totalItems();
     const router = useRouter();
     const searchRef = useRef<HTMLInputElement>(null);
+
+    // Live search state
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -38,6 +45,27 @@ export default function Header() {
     useEffect(() => {
         if (searchOpen && searchRef.current) searchRef.current.focus();
     }, [searchOpen]);
+
+    // Debounced live search
+    useEffect(() => {
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        if (searchQuery.trim().length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        setSearchLoading(true);
+        searchTimeoutRef.current = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                const data = await res.json();
+                setSearchResults(data.results || []);
+            } catch {
+                setSearchResults([]);
+            }
+            setSearchLoading(false);
+        }, 300);
+        return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current); };
+    }, [searchQuery]);
 
     // Lock body scroll when mobile menu is open
     useEffect(() => {
@@ -58,10 +86,19 @@ export default function Header() {
         router.push(`/shop?q=${encodeURIComponent(q)}`);
         setSearchOpen(false);
         setSearchQuery("");
+        setSearchResults([]);
+    };
+
+    const handleResultClick = (slug: string) => {
+        router.push(`/product/${slug}`);
+        setSearchOpen(false);
+        setSearchQuery("");
+        setSearchResults([]);
     };
 
     return (
         <>
+            <ScrollProgress />
             <header
                 className={`sticky top-0 z-50 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${scrolled
                     ? "glass-panel shadow-sm"
@@ -129,12 +166,85 @@ export default function Header() {
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                                        onClick={() => { setSearchOpen(false); setSearchQuery(""); setSearchResults([]); }}
                                         className="p-2 text-brand-dark/40 hover:text-brand-dark rounded-full hover:bg-brand-lilac/10 transition-colors cursor-pointer"
                                         aria-label="Close search"
                                     >
                                         <X size={16} />
                                     </button>
+
+                                    {/* Live search results dropdown */}
+                                    <AnimatePresence>
+                                        {searchOpen && searchQuery.trim().length >= 2 && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -8 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -8 }}
+                                                transition={{ duration: 0.2 }}
+                                                className="absolute top-full right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-brand-lilac/10 overflow-hidden z-50"
+                                            >
+                                                {searchLoading ? (
+                                                    <div className="p-4 space-y-3">
+                                                        {[1, 2, 3].map((i) => (
+                                                            <div key={i} className="flex gap-3 animate-pulse">
+                                                                <div className="w-11 h-14 rounded-lg bg-neutral-100 shimmer-bg" />
+                                                                <div className="flex-1 space-y-1.5 py-1">
+                                                                    <div className="h-3 bg-neutral-100 rounded-full w-3/4 shimmer-bg" />
+                                                                    <div className="h-2.5 bg-neutral-100 rounded-full w-1/2 shimmer-bg" />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : searchResults.length > 0 ? (
+                                                    <div>
+                                                        <div className="max-h-72 overflow-y-auto">
+                                                            {searchResults.map((item) => (
+                                                                <button
+                                                                    type="button"
+                                                                    key={item.id}
+                                                                    onClick={() => handleResultClick(item.slug)}
+                                                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-brand-lilac/5 transition-colors cursor-pointer text-left"
+                                                                >
+                                                                    <div className="relative w-11 h-14 rounded-lg overflow-hidden bg-neutral-50 flex-shrink-0">
+                                                                        {item.image && (
+                                                                            <Image
+                                                                                src={item.image}
+                                                                                alt={item.name}
+                                                                                fill
+                                                                                sizes="44px"
+                                                                                className="object-cover"
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="text-sm font-medium text-brand-dark truncate">{item.name}</p>
+                                                                        <p className="text-xs text-brand-dark/40">{item.category}</p>
+                                                                        <p className="text-xs font-semibold text-brand-purple mt-0.5">{formatCurrency(item.price)}</p>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        <button
+                                                            type="submit"
+                                                            className="w-full px-4 py-2.5 border-t border-brand-lilac/10 text-xs text-brand-purple hover:bg-brand-lilac/5 transition-colors cursor-pointer font-medium"
+                                                        >
+                                                            Search for &ldquo;{searchQuery}&rdquo; →
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="p-6 text-center">
+                                                        <p className="text-sm text-brand-dark/40">No products found</p>
+                                                        <button
+                                                            type="submit"
+                                                            className="mt-2 text-xs text-brand-purple hover:underline cursor-pointer"
+                                                        >
+                                                            Browse all products →
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </motion.form>
                             ) : (
                                 <motion.button

@@ -30,7 +30,7 @@ export default function ShopContent({ products, categories }: ShopContentProps) 
     const initialCategory = searchParams.get("category") || "";
     const [category, setCategory] = useState(initialCategory);
     const [brand, setBrand] = useState("");
-    const [priceRange, setPriceRange] = useState<[number, number]>([0, 999]);
+    const [priceRange, setPriceRange] = useState<[number, number]>([0, 9999999]);
     const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
     const [sortBy, setSortBy] = useState<SortOption>(
         searchParams.get("sort") === "newest" ? "newest" : "default"
@@ -72,12 +72,12 @@ export default function ShopContent({ products, categories }: ShopContentProps) 
         return result;
     }, [products, category, brand, priceRange, searchQuery, sortBy]);
 
-    const hasFilters = category || brand || priceRange[0] > 0 || priceRange[1] < 999;
+    const hasFilters = category || brand || priceRange[0] > 0 || priceRange[1] < 9999999;
 
     const clearFilters = () => {
         setCategory("");
         setBrand("");
-        setPriceRange([0, 999]);
+        setPriceRange([0, 9999999]);
     };
 
     return (
@@ -152,8 +152,8 @@ export default function ShopContent({ products, categories }: ShopContentProps) 
                                                     key={opt.value}
                                                     onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
                                                     className={`w-full text-left px-4 py-2 text-xs transition-colors cursor-pointer ${sortBy === opt.value
-                                                            ? "text-brand-purple font-semibold bg-brand-purple/5"
-                                                            : "text-brand-dark/60 hover:text-brand-dark hover:bg-neutral-50"
+                                                        ? "text-brand-purple font-semibold bg-brand-purple/5"
+                                                        : "text-brand-dark/60 hover:text-brand-dark hover:bg-neutral-50"
                                                         }`}
                                                 >
                                                     {opt.label}

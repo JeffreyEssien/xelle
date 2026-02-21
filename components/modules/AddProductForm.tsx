@@ -5,6 +5,7 @@ import type { Product, InventoryItem } from "@/types";
 import Button from "@/components/ui/Button";
 import { uploadProductImage } from "@/lib/uploadImage";
 import { createProduct, updateProduct, createInventoryItem, getInventoryItems } from "@/lib/queries";
+import { revalidateShop } from "@/app/actions";
 import RichTextEditor from "@/components/modules/RichTextEditor";
 import { toast } from "sonner";
 
@@ -109,6 +110,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                     images: imageUrls,
                     variants: variants,
                 });
+                await revalidateShop();
                 toast.success("Product updated!");
             } else {
                 // Create Logic
@@ -146,6 +148,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                     variants: variants,
                     inventoryId: inventoryId
                 });
+                await revalidateShop();
 
                 toast.success("Product created!");
             }
