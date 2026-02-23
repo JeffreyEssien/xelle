@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Product, InventoryItem } from "@/types";
+import type { Product, InventoryItem, Category } from "@/types";
 import Button from "@/components/ui/Button";
 import { uploadProductImage } from "@/lib/uploadImage";
-import { createProduct, updateProduct, createInventoryItem, getInventoryItems } from "@/lib/queries";
+import { createProduct, updateProduct, createInventoryItem, getInventoryItems, getCategories } from "@/lib/queries";
 import { revalidateShop } from "@/app/actions";
 import RichTextEditor from "@/components/modules/RichTextEditor";
 import { toast } from "sonner";
@@ -21,8 +21,10 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
     // Inventory List for "Select Existing"
     const [availableInventory, setAvailableInventory] = useState<InventoryItem[]>([]);
     const [selectedInvItem, setSelectedInvItem] = useState<InventoryItem | null>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
 
     useEffect(() => {
+        getCategories().then(cats => setCategories(cats)).catch(console.error);
         if (mode === "existing") {
             getInventoryItems().then(items => setAvailableInventory(items));
         }
@@ -203,7 +205,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Basic Fields */}
                     <InputField label="Product Title" name="title" value={form.title} onChange={handleChange} required />
-                    <SelectField label="Category" name="category" value={form.category} onChange={handleChange} required />
+                    <SelectField label="Category" name="category" value={form.category} onChange={handleChange} required options={categories} />
                 </div>
 
                 {/* Financials / Inventory Data */}
@@ -366,10 +368,11 @@ function InputField({ label, name, type = "text", value, onChange, required, rea
     );
 }
 
-function SelectField({ label, name, value, onChange, required }: {
+function SelectField({ label, name, value, onChange, required, options }: {
     label: string; name: string; value: string;
     onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
     required?: boolean;
+    options: Category[];
 }) {
     return (
         <div>
@@ -379,10 +382,9 @@ function SelectField({ label, name, value, onChange, required }: {
                 className="w-full border border-brand-lilac/20 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
             >
                 <option value="">Select category</option>
-                <option value="handbags">Handbags</option>
-                <option value="jewelry">Jewelry</option>
-                <option value="fragrances">Fragrances</option>
-                <option value="accessories">Accessories</option>
+                {options.map((cat) => (
+                    <option key={cat.id} value={cat.slug}>{cat.name}</option>
+                ))}
             </select>
         </div>
     );
