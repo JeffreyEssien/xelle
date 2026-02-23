@@ -21,8 +21,8 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
     const [searchQuery, setSearchQuery] = useState("");
 
     const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchQuery.toLowerCase())
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.category?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleEdit = (product: Product) => {

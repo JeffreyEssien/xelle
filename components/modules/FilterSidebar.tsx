@@ -38,10 +38,10 @@ export default function FilterSidebar({
             <CollapsibleSection title="Price" defaultOpen>
                 <div className="flex flex-wrap gap-2">
                     {[
-                        { label: "All Prices", value: [0, 9999999] as [number, number] },
-                        { label: "Under ₦150", value: [0, 150] as [number, number] },
-                        { label: "₦150 – ₦300", value: [150, 300] as [number, number] },
-                        { label: "Over ₦300", value: [300, 9999999] as [number, number] },
+                        { label: "All Prices", value: [0, Infinity] as [number, number] },
+                        { label: "Under ₦50,000", value: [0, 50000] as [number, number] },
+                        { label: "₦50k – ₦100k", value: [50000, 100000] as [number, number] },
+                        { label: "Over ₦100k", value: [100000, Infinity] as [number, number] },
                     ].map((p) => (
                         <FilterChip
                             key={p.label}

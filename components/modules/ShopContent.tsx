@@ -30,7 +30,7 @@ export default function ShopContent({ products, categories }: ShopContentProps) 
     const initialCategory = searchParams.get("category") || "";
     const [category, setCategory] = useState(initialCategory);
     const [brand, setBrand] = useState("");
-    const [priceRange, setPriceRange] = useState<[number, number]>([0, 9999999]);
+    const [priceRange, setPriceRange] = useState<[number, number]>([0, Infinity]);
     const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
     const [sortBy, setSortBy] = useState<SortOption>(
         searchParams.get("sort") === "newest" ? "newest" : "default"
@@ -43,15 +43,25 @@ export default function ShopContent({ products, categories }: ShopContentProps) 
             if (searchQuery) {
                 const q = searchQuery.toLowerCase();
                 const matchesName = p.name.toLowerCase().includes(q);
-                const matchesCategory = p.category.toLowerCase().includes(q);
-                const matchesBrand = p.brand.toLowerCase().includes(q);
-                const matchesDescription = p.description?.toLowerCase().includes(q);
+                const matchesCategory = p.category?.toLowerCase().includes(q) || false;
+                const matchesBrand = p.brand?.toLowerCase().includes(q) || false;
+                const matchesDescription = p.description?.toLowerCase().includes(q) || false;
                 if (!matchesName && !matchesCategory && !matchesBrand && !matchesDescription) return false;
             }
-            if (category && p.category !== category) return false;
-            if (brand && p.brand !== brand) return false;
+            if (category && p.category?.toLowerCase().trim() !== category.toLowerCase().trim()) return false;
+            if (brand && p.brand?.toLowerCase().trim() !== brand.toLowerCase().trim()) return false;
             if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
             return true;
+        });
+
+        console.log({
+            action: "filtering_debug",
+            totalProducts: products.length,
+            resultCount: result.length,
+            activeCategory: category,
+            activeBrand: brand,
+            priceRange: priceRange,
+            productsSample: products.slice(0, 2).map(p => ({ n: p.name, c: p.category, pr: p.price }))
         });
 
         // Sort
@@ -72,12 +82,12 @@ export default function ShopContent({ products, categories }: ShopContentProps) 
         return result;
     }, [products, category, brand, priceRange, searchQuery, sortBy]);
 
-    const hasFilters = category || brand || priceRange[0] > 0 || priceRange[1] < 9999999;
+    const hasFilters = category || brand || priceRange[0] > 0 || priceRange[1] < Infinity;
 
     const clearFilters = () => {
         setCategory("");
         setBrand("");
-        setPriceRange([0, 9999999]);
+        setPriceRange([0, Infinity]);
     };
 
     return (
