@@ -224,97 +224,176 @@ export default function InventoryContent({ logs: initialLogs, inventory: initial
 
             {tab === "stock" && (
                 <div className="bg-white rounded-lg shadow overflow-hidden border border-brand-lilac/20">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-brand-creme text-brand-dark">
-                            <tr>
-                                <th className="p-4 font-medium">SKU / Name</th>
-                                <th className="p-4 font-medium text-right">Cost</th>
-                                <th className="p-4 font-medium text-right">Price</th>
-                                <th className="p-4 font-medium text-right">Margin</th>
-                                <th className="p-4 font-medium text-center">Stock</th>
-                                <th className="p-4 font-medium text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-brand-lilac/10">
-                            {filteredItems.map(item => {
-                                const margin = item.sellingPrice > 0
-                                    ? ((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100
-                                    : 0;
+                    <div className="hidden md:block overflow-x-auto whitespace-nowrap">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-brand-creme text-brand-dark">
+                                <tr>
+                                    <th className="p-4 font-medium">SKU / Name</th>
+                                    <th className="p-4 font-medium text-right">Cost</th>
+                                    <th className="p-4 font-medium text-right">Price</th>
+                                    <th className="p-4 font-medium text-right">Margin</th>
+                                    <th className="p-4 font-medium text-center">Stock</th>
+                                    <th className="p-4 font-medium text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-brand-lilac/10">
+                                {filteredItems.map(item => {
+                                    const margin = item.sellingPrice > 0
+                                        ? ((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100
+                                        : 0;
 
-                                return (
-                                    <tr key={item.id} className="hover:bg-brand-creme/20">
-                                        <td className="p-4">
-                                            <div className="font-medium text-brand-dark">{item.name}</div>
-                                            <div className="text-xs text-gray-400 font-mono">{item.sku}</div>
-                                        </td>
-                                        <td className="p-4 text-right font-mono text-gray-600">
-                                            {formatCurrency(item.costPrice)}
-                                        </td>
-                                        <td className="p-4 text-right font-mono text-brand-dark">
-                                            {formatCurrency(item.sellingPrice)}
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${margin >= 30 ? "bg-green-100 text-green-700" :
+                                    return (
+                                        <tr key={item.id} className="hover:bg-brand-creme/20">
+                                            <td className="p-4">
+                                                <div className="font-medium text-brand-dark">{item.name}</div>
+                                                <div className="text-xs text-gray-400 font-mono">{item.sku}</div>
+                                            </td>
+                                            <td className="p-4 text-right font-mono text-gray-600">
+                                                {formatCurrency(item.costPrice)}
+                                            </td>
+                                            <td className="p-4 text-right font-mono text-brand-dark">
+                                                {formatCurrency(item.sellingPrice)}
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <span className={`px-2 py-0.5 rounded text-xs font-bold ${margin >= 30 ? "bg-green-100 text-green-700" :
+                                                    margin >= 15 ? "bg-yellow-100 text-yellow-700" :
+                                                        "bg-red-100 text-red-700"
+                                                    }`}>
+                                                    {margin.toFixed(0)}%
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-center">
+                                                <span className={`font-mono font-medium ${item.stock <= item.reorderLevel ? "text-red-600" : "text-brand-dark"}`}>
+                                                    {item.stock}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <button
+                                                    onClick={() => openAdjustment(item)}
+                                                    className="text-brand-purple hover:text-brand-dark font-medium"
+                                                >
+                                                    Manage
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile Stock View */}
+                    <div className="md:hidden divide-y divide-brand-lilac/10">
+                        {filteredItems.map(item => {
+                            const margin = item.sellingPrice > 0
+                                ? ((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100
+                                : 0;
+                            return (
+                                <div key={item.id} className="p-4 hover:bg-brand-creme/20 space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <div className="font-medium text-brand-dark text-base">{item.name}</div>
+                                            <div className="text-xs text-gray-400 font-mono mt-0.5">{item.sku}</div>
+                                        </div>
+                                        <button
+                                            onClick={() => openAdjustment(item)}
+                                            className="text-brand-purple hover:text-brand-dark font-medium text-xs bg-brand-lilac/10 px-3 py-1.5 rounded-md border border-brand-purple/20 shadow-sm"
+                                        >
+                                            Manage
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-sm mt-3">
+                                        <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100/50">
+                                            <span className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Cost</span>
+                                            <span className="font-mono text-gray-600">{formatCurrency(item.costPrice)}</span>
+                                        </div>
+                                        <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100/50">
+                                            <span className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Price</span>
+                                            <span className="font-mono text-brand-dark font-medium">{formatCurrency(item.sellingPrice)}</span>
+                                        </div>
+                                        <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100/50">
+                                            <span className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Margin</span>
+                                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${margin >= 30 ? "bg-green-100 text-green-700" :
                                                 margin >= 15 ? "bg-yellow-100 text-yellow-700" :
                                                     "bg-red-100 text-red-700"
                                                 }`}>
                                                 {margin.toFixed(0)}%
                                             </span>
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <span className={`font-mono font-medium ${item.stock <= item.reorderLevel ? "text-red-600" : "text-brand-dark"}`}>
+                                        </div>
+                                        <div className="bg-gray-50 p-2.5 rounded-md border border-gray-100/50 flex flex-col justify-between">
+                                            <span className="block text-[10px] text-gray-400 uppercase tracking-wider mb-1">Stock</span>
+                                            <span className={`font-mono font-medium text-lg leading-none ${item.stock <= item.reorderLevel ? "text-red-600" : "text-brand-dark"}`}>
                                                 {item.stock}
                                             </span>
-                                        </td>
-                                        <td className="p-4 text-right">
-                                            <button
-                                                onClick={() => openAdjustment(item)}
-                                                className="text-brand-purple hover:text-brand-dark font-medium"
-                                            >
-                                                Manage
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {filteredItems.length === 0 && (
+                            <div className="p-8 text-center text-gray-500 text-sm">No items found.</div>
+                        )}
+                    </div>
                 </div>
             )}
 
             {/* Reuse History Log Table from before (omitted for brevity, assume strictly kept or copied) */}
             {tab === "history" && (
                 <div className="bg-white rounded-lg shadow overflow-hidden border border-brand-lilac/20">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-brand-creme text-brand-dark">
-                            <tr>
-                                <th className="p-4 font-medium">Product</th>
-                                <th className="p-4 font-medium">Change</th>
-                                <th className="p-4 font-medium">Reason</th>
-                                <th className="p-4 font-medium">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-brand-lilac/10">
-                            {filteredLogs.map((log) => (
-                                <tr key={log.id} className="hover:bg-brand-creme/20">
-                                    <td className="p-4 font-medium text-brand-dark">{log.productName}</td>
-                                    <td className={`p-4 font-medium ${log.changeAmount > 0 ? "text-green-600" : "text-red-600"}`}>
+                    <div className="hidden md:block overflow-x-auto whitespace-nowrap">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-brand-creme text-brand-dark">
+                                <tr>
+                                    <th className="p-4 font-medium">Product</th>
+                                    <th className="p-4 font-medium">Change</th>
+                                    <th className="p-4 font-medium">Reason</th>
+                                    <th className="p-4 font-medium">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-brand-lilac/10">
+                                {filteredLogs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-brand-creme/20">
+                                        <td className="p-4 font-medium text-brand-dark">{log.productName}</td>
+                                        <td className={`p-4 font-medium ${log.changeAmount > 0 ? "text-green-600" : "text-red-600"}`}>
+                                            {log.changeAmount > 0 ? "+" : ""}
+                                            {log.changeAmount}
+                                        </td>
+                                        <td className="p-4 text-gray-600 capitalize">{log.reason}</td>
+                                        <td className="p-4 text-gray-500">
+                                            {new Date(log.createdAt).toLocaleString()}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {filteredLogs.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="p-8 text-center text-gray-500">No logs found.</td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Mobile History View */}
+                    <div className="md:hidden divide-y divide-brand-lilac/10">
+                        {filteredLogs.map((log) => (
+                            <div key={log.id} className="p-4 hover:bg-brand-creme/20 space-y-2">
+                                <div className="flex justify-between items-start">
+                                    <div className="font-medium text-brand-dark">{log.productName}</div>
+                                    <div className={`font-medium py-0.5 px-2 rounded-md text-sm ${log.changeAmount > 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
                                         {log.changeAmount > 0 ? "+" : ""}
                                         {log.changeAmount}
-                                    </td>
-                                    <td className="p-4 text-gray-600 capitalize">{log.reason}</td>
-                                    <td className="p-4 text-gray-500">
-                                        {new Date(log.createdAt).toLocaleString()}
-                                    </td>
-                                </tr>
-                            ))}
-                            {filteredLogs.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="p-8 text-center text-gray-500">No logs found.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between items-center text-sm text-gray-500">
+                                    <span className="capitalize bg-gray-50 px-2.5 py-1 rounded text-xs border border-gray-100">{log.reason}</span>
+                                    <span className="text-xs">{new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                            </div>
+                        ))}
+                        {filteredLogs.length === 0 && (
+                            <div className="p-8 text-center text-gray-500 text-sm">No logs found.</div>
+                        )}
+                    </div>
                 </div>
             )}
 
