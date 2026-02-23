@@ -95,6 +95,18 @@ export default function SiteSettingsForm() {
                         </div>
                     )}
                 </Field>
+                <Field label="Favicon (Icon)">
+                    <div className="flex gap-2">
+                        <input type="text" name="faviconUrl" value={settings.faviconUrl || ""} onChange={handleChange} className="form-input flex-1" placeholder="https://..." />
+                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "faviconUrl" as any)} className="hidden" id="favicon-upload" />
+                        <label htmlFor="favicon-upload" className="upload-btn">Upload</label>
+                    </div>
+                    {settings.faviconUrl && (
+                        <div className="mt-2 relative h-8 w-8">
+                            <img src={settings.faviconUrl} alt="Favicon Preview" className="h-full w-full object-contain" />
+                        </div>
+                    )}
+                </Field>
             </SettingsSection>
 
             {/* --- Homepage Hero --- */}
@@ -123,6 +135,36 @@ export default function SiteSettingsForm() {
                     </Field>
                     <Field label="CTA Link">
                         <input type="text" name="heroCtaLink" value={settings.heroCtaLink || ""} onChange={handleChange} className="form-input" />
+                    </Field>
+                </div>
+            </SettingsSection>
+
+            {/* --- Our Story & Why XELLE --- */}
+            <SettingsSection title="Our Story & Features" icon={Type}>
+                <Field label="Our Story Heading">
+                    <input type="text" name="ourStoryHeading" value={settings.ourStoryHeading || ""} onChange={handleChange} className="form-input" placeholder="The Comfort of Smart Living" />
+                </Field>
+                <Field label="Our Story Text (Separate paragraphs with double newlines)">
+                    <textarea
+                        name="ourStoryText"
+                        value={settings.ourStoryText || ""}
+                        onChange={handleChange}
+                        className="form-input min-h-[160px] resize-y"
+                        placeholder="XELLÉ was created from a simple idea...\n\nAs a chronic online shopper..."
+                    />
+                </Field>
+                <div className="pt-4 border-t border-brand-lilac/15 mt-4">
+                    <Field label="Why XELLÉ Heading">
+                        <input type="text" name="whyXelleHeading" value={settings.whyXelleHeading || ""} onChange={handleChange} className="form-input" placeholder="Why XELLÉ?" />
+                    </Field>
+                    <Field label="Why XELLÉ Features (One feature per line)">
+                        <textarea
+                            name="whyXelleFeatures"
+                            value={settings.whyXelleFeatures || ""}
+                            onChange={handleChange}
+                            className="form-input min-h-[120px] resize-y"
+                            placeholder="High-end brands at affordable prices\nBeauty, accessories, gadgets & home essentials in one place"
+                        />
                     </Field>
                 </div>
             </SettingsSection>

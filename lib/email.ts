@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import type { Order } from "@/types";
-import { SITE_NAME, SITE_EMAIL, WHATSAPP_NUMBER } from "@/lib/constants";
+import { SITE_NAME, SITE_EMAIL, WHATSAPP_NUMBER, SITE_URL } from "@/lib/constants";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -131,6 +131,8 @@ function buildReceiptHtml(order: Order): string {
 
     <!-- Footer -->
     <div style="background: #f8f7fa; border-radius: 0 0 16px 16px; padding: 24px; text-align: center; border: 1px solid #f3f0f7; border-top: none;">
+      <a href="${SITE_URL}/track?id=${order.id}" style="display: inline-block; background: linear-gradient(135deg, #1a1a2e 0%, #7c3aed 100%); color: white; text-decoration: none; font-size: 13px; font-weight: 600; padding: 10px 24px; border-radius: 25px; margin-bottom: 12px;">📦 Track Your Order →</a>
+      <br>
       <a href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi! I have a question about my order.")}" style="display: inline-block; background: #25D366; color: white; text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 20px; border-radius: 20px; margin-bottom: 12px;">💬 Chat with us on WhatsApp</a>
       <p style="font-size: 12px; color: #aaa; margin: 0 0 4px 0;">
         We'll send you tracking info once your order ships.
@@ -375,6 +377,8 @@ function buildStatusEmailHtml(params: {
 
     <!-- Footer -->
     <div style="background: #f8f7fa; border-radius: 0 0 16px 16px; padding: 24px; text-align: center; border: 1px solid #f3f0f7; border-top: none;">
+      <a href="${SITE_URL}/track?id=${params.orderId}" style="display: inline-block; background: linear-gradient(135deg, #1a1a2e 0%, #7c3aed 100%); color: white; text-decoration: none; font-size: 13px; font-weight: 600; padding: 10px 24px; border-radius: 25px; margin-bottom: 12px;">📦 Track Your Order →</a>
+      <br>
       <a href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent("Hi! I have a question about my order.")}" style="display: inline-block; background: #25D366; color: white; text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 20px; border-radius: 20px; margin-bottom: 12px;">💬 Chat with us on WhatsApp</a>
       <p style="font-size: 12px; color: #ccc; margin: 0;">
         With love, The ${SITE_NAME} Team

@@ -407,6 +407,12 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
         heroImage: data.hero_image,
         heroCtaText: data.hero_cta_text,
         heroCtaLink: data.hero_cta_link,
+        faviconUrl: data.favicon_url,
+        ourStoryHeading: data.our_story_heading,
+        ourStoryText: data.our_story_text,
+        whyXelleHeading: data.why_xelle_heading,
+        whyXelleFeatures: data.why_xelle_features,
+        freeShippingThreshold: data.free_shipping_threshold,
     };
 }
 
@@ -422,6 +428,12 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
     if (settings.heroImage !== undefined) dbSettings.hero_image = settings.heroImage;
     if (settings.heroCtaText !== undefined) dbSettings.hero_cta_text = settings.heroCtaText;
     if (settings.heroCtaLink !== undefined) dbSettings.hero_cta_link = settings.heroCtaLink;
+    if (settings.faviconUrl !== undefined) dbSettings.favicon_url = settings.faviconUrl;
+    if (settings.ourStoryHeading !== undefined) dbSettings.our_story_heading = settings.ourStoryHeading;
+    if (settings.ourStoryText !== undefined) dbSettings.our_story_text = settings.ourStoryText;
+    if (settings.whyXelleHeading !== undefined) dbSettings.why_xelle_heading = settings.whyXelleHeading;
+    if (settings.whyXelleFeatures !== undefined) dbSettings.why_xelle_features = settings.whyXelleFeatures;
+    if (settings.freeShippingThreshold !== undefined) dbSettings.free_shipping_threshold = settings.freeShippingThreshold;
 
     // init if not exists, otherwise update
     const { error } = await supabase

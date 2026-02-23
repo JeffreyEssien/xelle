@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import Button from "@/components/ui/Button";
 import { useCartStore } from "@/lib/cartStore";
 import { useOrderStore } from "@/lib/orderStore";
-import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD, WHATSAPP_NUMBER } from "@/lib/constants";
+import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD as DEFAULT_FREE_SHIPPING_THRESHOLD, WHATSAPP_NUMBER } from "@/lib/constants";
 import type { ShippingAddress, Order } from "@/types";
 import { MessageCircle, Clock, Lock, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getSiteSettings } from "@/lib/queries";
 
 interface CheckoutFormProps {
     onComplete: (orderInfo?: { orderId: string; total: number; paymentMethod: "whatsapp" | "bank_transfer" }) => void;
@@ -21,8 +22,13 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
     const [form, setForm] = useState<ShippingAddress>(emptyAddress);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof ShippingAddress, string>>>({});
+    const [freeShippingSetting, setFreeShippingSetting] = useState<number | null>(null);
     const { items, subtotal, clearCart, couponCode, discount, removeCoupon } = useCartStore();
     const { addOrder } = useOrderStore();
+
+    useEffect(() => {
+        getSiteSettings().then(settings => setFreeShippingSetting(settings?.freeShippingThreshold ?? null)).catch(() => { });
+    }, []);
 
     const [paymentMethod, setPaymentMethod] = useState<"whatsapp" | "manual">("whatsapp");
 
@@ -50,7 +56,8 @@ export default function CheckoutForm({ onComplete }: CheckoutFormProps) {
         setLoading(true);
 
         const sub = subtotal();
-        const ship = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
+        const freeShippingThreshold = freeShippingSetting !== null ? freeShippingSetting : DEFAULT_FREE_SHIPPING_THRESHOLD;
+        const ship = sub >= freeShippingThreshold ? 0 : SHIPPING_RATE;
         const discountAmount = sub * (discount / 100);
 
         const order: Order = {

@@ -89,6 +89,12 @@ export interface SiteSettings {
     heroImage?: string;
     heroCtaText?: string;
     heroCtaLink?: string;
+    // New Fields
+    faviconUrl?: string;
+    ourStoryHeading?: string;
+    ourStoryText?: string;
+    whyXelleHeading?: string;
+    whyXelleFeatures?: string;
     // Announcement bar
     announcementBarEnabled?: boolean;
     announcementBarText?: string;
@@ -104,6 +110,8 @@ export interface SiteSettings {
     businessAddress?: string;
     // Footer
     footerTagline?: string;
+    // Shipping
+    freeShippingThreshold?: number;
 }
 
 export interface Coupon {

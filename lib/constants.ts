@@ -1,15 +1,17 @@
 export const SITE_NAME = "XELLÉ";
-export const SITE_DESCRIPTION = "Simple. Elegant. Classy.";
+export const SITE_DESCRIPTION = "Curating smart finds for modern, everyday living.";
 export const CURRENCY = "NGN";
 export const LOW_STOCK_THRESHOLD = 5;
 export const SHIPPING_RATE = 2500;
 export const FREE_SHIPPING_THRESHOLD = 50000;
 
 export const SITE_EMAIL = "xelle.ng2026@gmail.com";
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://xelle.vercel.app";
 
 export const NAV_LINKS = [
     { label: "Home", href: "/" },
     { label: "Shop", href: "/shop" },
+    { label: "Track Order", href: "/track" },
     { label: "About", href: "/#about" },
 ] as const;
 

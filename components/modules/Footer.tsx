@@ -15,7 +15,7 @@ export default function Footer() {
     }, []);
 
     const displayName = settings?.siteName || SITE_NAME;
-    const tagline = settings?.footerTagline || "Curating timeless luxury for the modern lifestyle.";
+    const tagline = settings?.footerTagline || "Curating smart finds for modern, everyday living.";
 
     const socialLinks = [
         { icon: Instagram, url: settings?.socialInstagram, label: "Instagram" },
@@ -54,6 +54,7 @@ export default function Footer() {
                             {[
                                 { label: "Shop Collection", href: "/shop" },
                                 { label: "New Arrivals", href: "/shop?sort=newest" },
+                                { label: "Track Order", href: "/track" },
                                 { label: "Our Story", href: "/#about" },
                             ].map((l) => (
                                 <li key={l.href}>

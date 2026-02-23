@@ -11,7 +11,7 @@ import CheckoutSummary from "@/components/modules/CheckoutSummary";
 import Receipt from "@/components/modules/Receipt";
 import BankTransferPanel from "@/components/modules/BankTransferPanel";
 import Button from "@/components/ui/Button";
-import { ShoppingBag, ArrowRight, ArrowLeft, Check, Printer, Clock } from "lucide-react";
+import { ShoppingBag, ArrowRight, ArrowLeft, Check, Printer, Clock, Package } from "lucide-react";
 
 type CheckoutState =
     | { step: "checkout" }
@@ -197,6 +197,10 @@ function SuccessBanner() {
             <p className="text-brand-dark/50 text-sm max-w-md mx-auto">
                 A confirmation email with your receipt has been sent to your inbox.
             </p>
+            <a href="/track" className="inline-flex items-center gap-2 mt-5 text-xs font-medium text-brand-purple hover:text-brand-dark transition-colors">
+                <Package size={14} />
+                Track Your Order →
+            </a>
         </motion.div>
     );
 }
@@ -233,6 +237,12 @@ function PaymentSubmittedBanner({ orderId }: { orderId: string }) {
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 text-xs font-medium rounded-full">
                 <Clock size={12} />
                 Awaiting Admin Approval
+            </div>
+            <div className="mt-4">
+                <a href="/track" className="inline-flex items-center gap-2 text-xs font-medium text-brand-purple hover:text-brand-dark transition-colors">
+                    <Package size={14} />
+                    Track Your Order →
+                </a>
             </div>
         </motion.div>
     );

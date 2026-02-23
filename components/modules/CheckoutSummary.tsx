@@ -4,14 +4,23 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCartStore } from "@/lib/cartStore";
 import { formatCurrency } from "@/lib/formatCurrency";
-import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
+import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD as DEFAULT_FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
 import CouponInput from "@/components/modules/CouponInput";
 import { Package } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getSiteSettings } from "@/lib/queries";
 
 export default function CheckoutSummary() {
     const { items, subtotal, discount } = useCartStore();
+    const [freeShippingSetting, setFreeShippingSetting] = useState<number | null>(null);
+
+    useEffect(() => {
+        getSiteSettings().then(settings => setFreeShippingSetting(settings?.freeShippingThreshold ?? null)).catch(() => { });
+    }, []);
+
     const sub = subtotal();
-    const shipping = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
+    const freeShippingThreshold = freeShippingSetting !== null ? freeShippingSetting : DEFAULT_FREE_SHIPPING_THRESHOLD;
+    const shipping = sub >= freeShippingThreshold ? 0 : SHIPPING_RATE;
     const discountAmount = sub * (discount / 100);
     const total = Math.max(0, sub - discountAmount + shipping);
 
@@ -68,7 +77,7 @@ export default function CheckoutSummary() {
                 <Row label="Shipping" value={shipping === 0 ? "Free" : formatCurrency(shipping)} />
                 {shipping > 0 && (
                     <p className="text-[10px] text-brand-dark/30">
-                        Free shipping on orders over {formatCurrency(FREE_SHIPPING_THRESHOLD)}
+                        Free shipping on orders over {formatCurrency(freeShippingThreshold)}
                     </p>
                 )}
             </div>

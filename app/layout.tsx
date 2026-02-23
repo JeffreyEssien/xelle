@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import ToastProvider from "@/components/ui/ToastProvider";
 import WhatsAppFloat from "@/components/ui/WhatsAppFloat";
+import { getSiteSettings } from "@/lib/queries";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -16,10 +17,17 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "XELLÉ | High-End Lifestyle E-Commerce",
-  description: "Simple, Elegant, Classy e-commerce experience.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+
+  return {
+    title: settings?.siteName ? `${settings.siteName} | High-End Lifestyle E-Commerce` : "XELLÉ | High-End Lifestyle E-Commerce",
+    description: "Simple, Elegant, Classy e-commerce experience.",
+    icons: settings?.faviconUrl ? {
+      icon: settings.faviconUrl
+    } : undefined
+  };
+}
 
 export default function RootLayout({
   children,

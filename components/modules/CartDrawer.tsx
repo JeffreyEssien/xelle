@@ -5,16 +5,27 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cartStore";
 import { formatCurrency } from "@/lib/formatCurrency";
-import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
+import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD as DEFAULT_FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
 import Button from "@/components/ui/Button";
 import { X, Minus, Plus, Trash2, ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getSiteSettings } from "@/lib/queries";
 
 export default function CartDrawer() {
     const { items, isOpen, close, subtotal } = useCartStore();
+    const [freeShippingSetting, setFreeShippingSetting] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            getSiteSettings().then(settings => setFreeShippingSetting(settings?.freeShippingThreshold ?? null)).catch(() => { });
+        }
+    }, [isOpen]);
+
     const sub = subtotal();
-    const shipping = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_RATE;
-    const freeShippingRemaining = FREE_SHIPPING_THRESHOLD - sub;
-    const shippingProgress = Math.min((sub / FREE_SHIPPING_THRESHOLD) * 100, 100);
+    const freeShippingThreshold = freeShippingSetting !== null ? freeShippingSetting : DEFAULT_FREE_SHIPPING_THRESHOLD;
+    const shipping = sub >= freeShippingThreshold ? 0 : SHIPPING_RATE;
+    const freeShippingRemaining = freeShippingThreshold - sub;
+    const shippingProgress = Math.min((sub / freeShippingThreshold) * 100, 100);
 
     return (
         <AnimatePresence>

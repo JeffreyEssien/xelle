@@ -1,6 +1,7 @@
 import { getCoupons, deleteCoupon, toggleCouponStatus } from "@/lib/queries";
-import CouponForm from "@/components/modules/CouponForm";
+import CouponFormWrapper from "@/components/modules/CouponFormWrapper";
 import CouponList from "@/components/modules/CouponList";
+import FreeShippingSettings from "@/components/modules/FreeShippingSettings";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,8 @@ export default async function AdminCouponsPage() {
                 <p className="text-brand-dark/60 text-sm">Manage discount codes.</p>
             </div>
 
+            <FreeShippingSettings />
+
             <CouponFormWrapper />
 
             <div className="bg-white rounded-lg border border-brand-lilac/20 overflow-hidden">
@@ -32,6 +35,3 @@ export default async function AdminCouponsPage() {
         </div>
     );
 }
-
-// Wrapper to handle refresh
-import CouponFormWrapper from "@/components/modules/CouponFormWrapper";

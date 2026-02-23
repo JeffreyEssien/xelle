@@ -1,9 +1,17 @@
 "use client";
 
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { getSiteSettings } from "@/lib/queries";
+import type { SiteSettings } from "@/types";
 
 export default function AboutSnippet() {
+    const [settings, setSettings] = useState<SiteSettings | null>(null);
+
+    useEffect(() => {
+        getSiteSettings().then(setSettings).catch(() => { });
+    }, []);
+
     return (
         <section id="about" className="py-24 md:py-32 px-6 relative overflow-hidden">
             {/* Ambient glow */}
@@ -20,8 +28,9 @@ export default function AboutSnippet() {
                     <div className="flex flex-col items-center mb-14">
                         <p className="text-[11px] uppercase tracking-[0.3em] text-brand-purple mb-3 font-medium">Our Story</p>
                         <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-brand-dark tracking-tight leading-tight max-w-2xl">
-                            The Art of{" "}
-                            <span className="text-gradient-luxury italic">Less</span>
+                            {settings?.ourStoryHeading ? settings.ourStoryHeading : (
+                                <>The Comfort of <span className="text-gradient-luxury italic">Smart Living</span></>
+                            )}
                         </h2>
                         <motion.div
                             initial={{ scaleX: 0 }}
@@ -33,82 +42,59 @@ export default function AboutSnippet() {
                     </div>
 
                     {/* Paragraphs with stagger */}
-                    <div className="space-y-6 max-w-2xl mx-auto">
-                        <motion.p
-                            initial={{ opacity: 0, y: 15 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.1, duration: 0.6 }}
-                            className="text-base md:text-lg text-brand-dark/55 leading-relaxed font-light"
-                        >
-                            XELLÉ was born from the belief that true luxury lies not in excess, but in intention.
-                            Every piece we curate embodies a commitment to quality, timelessness, and quiet elegance.
-                        </motion.p>
-                        <motion.p
-                            initial={{ opacity: 0, y: 15 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: 0.2, duration: 0.6 }}
-                            className="text-base md:text-lg text-brand-dark/55 leading-relaxed font-light"
-                        >
-                            We partner with artisans who share our philosophy — that the most beautiful things are
-                            those designed to endure. From hand-stitched leather to ethically sourced gemstones,
-                            each detail is considered, every material chosen with care.
-                        </motion.p>
+                    <div className="space-y-6 max-w-2xl mx-auto md:text-center text-left">
+                        {(settings?.ourStoryText ? settings.ourStoryText.split("\n\n") : [
+                            "XELLÉ was created from a simple idea: everyday living should feel elevated without being expensive or complicated.",
+                            "As a chronic online shopper, I was tired of buying from multiple stores and paying delivery fees over and over again. I wanted one space where you could find quality beauty products, chic accessories, home essentials, gadgets, and more — all carefully selected and reasonably priced.",
+                            "At XELLÉ, we focus on high-end finds at affordable prices and everyday essentials that make life easier. Convenience you can rely on. Quality you can trust. Pieces that help you feel put together without the stress.",
+                            "This is more than just a store.\nIt’s convenience.\nIt’s comfort.\nIt’s curated for everyday living."
+                        ]).map((paragraph, idx) => (
+                            <motion.p
+                                key={idx}
+                                initial={{ opacity: 0, y: 15 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: 0.1 * (idx + 1), duration: 0.6 }}
+                                className={`text-base md:text-lg text-brand-dark/55 leading-relaxed ${idx === 3 && !settings?.ourStoryText ? 'font-medium mt-4' : 'font-light'} whitespace-pre-line`}
+                            >
+                                {paragraph}
+                            </motion.p>
+                        ))}
                     </div>
 
-                    {/* Stats with animated counters */}
-                    <div className="mt-20 grid grid-cols-3 gap-6 sm:gap-12 border-y border-brand-lilac/15 py-12">
-                        <AnimatedStat value={5} suffix="+" label="Years" delay={0} />
-                        <AnimatedStat value={40} suffix="+" label="Artisans" delay={0.15} />
-                        <AnimatedStat value={12} suffix="" label="Countries" delay={0.3} />
+                    {/* WHY XELLE */}
+                    <div className="mt-20 border-t border-brand-lilac/15 pt-16 pb-4 text-left max-w-lg mx-auto">
+                        <motion.h3
+                            initial={{ opacity: 0, y: 10 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            className="text-[13px] uppercase tracking-[0.25em] text-brand-dark mb-10 font-bold text-center"
+                        >
+                            {settings?.whyXelleHeading || "Why XELLÉ?"}
+                        </motion.h3>
+                        <ul className="space-y-6">
+                            {(settings?.whyXelleFeatures ? settings.whyXelleFeatures.split("\n").filter(Boolean) : [
+                                "High-end brands at affordable prices",
+                                "Beauty, accessories, gadgets & home essentials in one place",
+                                "One cart. One delivery fee",
+                                "Curated for comfort and convenience"
+                            ]).map((feature, idx) => (
+                                <motion.li
+                                    key={idx}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    whileInView={{ opacity: 1, x: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ delay: 0.1 * idx, duration: 0.5 }}
+                                    className="flex items-start gap-4 text-brand-dark/70 text-base font-light"
+                                >
+                                    <span className="text-brand-purple flex-shrink-0 mt-0.5 font-bold">✔</span>
+                                    <span>{feature}</span>
+                                </motion.li>
+                            ))}
+                        </ul>
                     </div>
                 </motion.div>
             </div>
         </section>
-    );
-}
-
-function AnimatedStat({ value, suffix, label, delay }: { value: number; suffix: string; label: string; delay: number }) {
-    const count = useMotionValue(0);
-    const rounded = useTransform(count, (v) => Math.round(v));
-    const ref = useRef<HTMLSpanElement>(null);
-    const hasAnimated = useRef(false);
-
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting && !hasAnimated.current) {
-                    hasAnimated.current = true;
-                    animate(count, value, {
-                        duration: 1.5,
-                        delay,
-                        ease: [0.16, 1, 0.3, 1],
-                    });
-                }
-            },
-            { threshold: 0.5 }
-        );
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [count, value, delay]);
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay, duration: 0.5, ease: "easeOut" }}
-            className="flex flex-col items-center"
-        >
-            <span ref={ref} className="font-serif text-3xl sm:text-4xl md:text-5xl text-brand-dark mb-2 tracking-tight">
-                <motion.span>{rounded}</motion.span>
-                {suffix}
-            </span>
-            <p className="text-[10px] sm:text-[11px] text-brand-dark/45 uppercase tracking-[0.25em] font-medium">{label}</p>
-        </motion.div>
     );
 }

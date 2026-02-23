@@ -39,9 +39,9 @@ export default function Hero() {
         getSiteSettings().then(setSettings).catch(() => { });
     }, []);
 
-    const headingText = settings?.heroHeading || "Simple. Elegant. Classy.";
+    const headingText = settings?.heroHeading || "Smart. Comfortable. Intentional.";
     const headingWords = typeof headingText === "string" ? headingText.split(" ") : [];
-    const subheading = settings?.heroSubheading || "Curated collections designed for those who appreciate the art of understated luxury.";
+    const subheading = settings?.heroSubheading || "Thoughtfully curated beauty products, accessories, home essentials, gadgets, and lifestyle finds — all in one place. Because shopping should feel easy, not overwhelming.";
     const ctaText = settings?.heroCtaText || "Shop Collection";
     const ctaLink = settings?.heroCtaLink || "/shop";
 
@@ -100,7 +100,7 @@ export default function Hero() {
                 >
                     <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.35em] text-brand-purple font-medium px-4 py-2 rounded-full border border-brand-purple/15 bg-brand-purple/[0.04]">
                         <span className="w-1.5 h-1.5 rounded-full bg-brand-purple animate-pulse" />
-                        Luxury Redefined
+                        CURATED FOR EVERYDAY LIVING
                     </span>
                 </motion.div>
 
@@ -123,9 +123,9 @@ export default function Hero() {
                             ))
                         ) : (
                             <>
-                                Simple. Elegant.
+                                Smart. Comfortable.
                                 <br />
-                                <span className="text-gradient-luxury font-bold">Classy.</span>
+                                <span className="text-gradient-luxury font-bold">Intentional.</span>
                             </>
                         )}
                     </h1>
