@@ -185,7 +185,7 @@ export default function SiteSettingsForm() {
                     </label>
                 </div>
                 <Field label="Announcement Text">
-                    <input type="text" name="announcementBarText" value={settings.announcementBarText || ""} onChange={handleChange} className="form-input" placeholder="Free shipping on orders over ₦50,000!" />
+                    <input type="text" name="announcementBarText" value={settings.announcementBarText || ""} onChange={handleChange} className="form-input" placeholder="New arrivals now available — shop the latest collection!" />
                 </Field>
                 <Field label="Background Color">
                     <div className="flex items-center gap-3">

@@ -178,7 +178,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
             {/* Trust badges */}
             <div className="mt-8 grid grid-cols-3 gap-2.5">
-                <TrustBadge icon={Truck} label="Free Shipping" sublabel="Over ₦50,000" />
+                <TrustBadge icon={Truck} label="Fast Delivery" sublabel="Nationwide" />
                 <TrustBadge icon={Shield} label="Authentic" sublabel="100% Genuine" />
                 <TrustBadge icon={RotateCcw} label="Easy Returns" sublabel="7-day Policy" />
             </div>

@@ -241,7 +241,8 @@ function SalesView({ data }: { data: AnalyticsData }) {
                 </div>
                 <div className="glass-card p-6">
                     <h3 className="text-lg font-medium text-brand-dark mb-4">Top Selling Products</h3>
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="text-gray-400 text-xs uppercase tracking-wider">
                                 <tr>
@@ -263,6 +264,32 @@ function SalesView({ data }: { data: AnalyticsData }) {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                    {/* Mobile Cards */}
+                    <div className="md:hidden flex flex-col gap-3">
+                        {data.products.topSelling.map((p, i) => (
+                            <div key={p.id} className="bg-white rounded-lg border border-brand-lilac/20 p-3 shadow-sm flex flex-col gap-2">
+                                <div className="flex items-center gap-2 border-b border-brand-lilac/10 pb-2">
+                                    <span className="text-xs font-mono font-bold text-brand-purple bg-brand-lilac/10 px-2 py-0.5 rounded-full">#{i + 1}</span>
+                                    <span className="font-medium text-brand-dark">{p.name}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] uppercase text-brand-dark/40">Units Sold</span>
+                                        <span className="font-medium text-brand-dark">{p.quantity}</span>
+                                    </div>
+                                    <div className="flex flex-col text-right">
+                                        <span className="text-[10px] uppercase text-brand-dark/40">Revenue</span>
+                                        <span className="font-medium text-brand-dark">{formatCurrency(p.revenue)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {data.products.topSelling.length === 0 && (
+                            <div className="text-center py-6 text-brand-dark/50 text-sm border border-brand-lilac/20 rounded-lg border-dashed">
+                                No products found
+                            </div>
+                        )}
                     </div>
                 </div>
             </motion.div>
@@ -383,7 +410,8 @@ function MarketingView({ data }: { data: AnalyticsData }) {
 
             <motion.div variants={fadeUp} className="glass-card p-6">
                 <h3 className="text-lg font-medium text-brand-dark mb-4">Top Performing Coupons</h3>
-                <div className="overflow-x-auto">
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="text-gray-400 text-xs uppercase tracking-wider">
                             <tr>
@@ -403,6 +431,23 @@ function MarketingView({ data }: { data: AnalyticsData }) {
                             )}
                         </tbody>
                     </table>
+                </div>
+                {/* Mobile Cards */}
+                <div className="md:hidden flex flex-col gap-3">
+                    {data.marketing.topCoupons.map(c => (
+                        <div key={c.code} className="bg-white flex justify-between items-center rounded-lg border border-brand-lilac/20 p-4 shadow-sm">
+                            <span className="font-mono font-bold text-brand-purple">{c.code}</span>
+                            <div className="flex flex-col text-right">
+                                <span className="text-[10px] uppercase text-brand-dark/40">Uses</span>
+                                <span className="font-medium text-brand-dark text-lg leading-none">{c.count}</span>
+                            </div>
+                        </div>
+                    ))}
+                    {data.marketing.topCoupons.length === 0 && (
+                        <div className="text-center py-6 text-brand-dark/50 text-sm border border-brand-lilac/20 rounded-lg border-dashed">
+                            No coupon usage yet
+                        </div>
+                    )}
                 </div>
             </motion.div>
         </motion.div>

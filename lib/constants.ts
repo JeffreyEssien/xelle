@@ -2,8 +2,7 @@ export const SITE_NAME = "XELLÉ";
 export const SITE_DESCRIPTION = "Curating smart finds for modern, everyday living.";
 export const CURRENCY = "NGN";
 export const LOW_STOCK_THRESHOLD = 5;
-export const SHIPPING_RATE = 2500;
-export const FREE_SHIPPING_THRESHOLD = 50000;
+
 
 export const SITE_EMAIL = "xelle.ng2026@gmail.com";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://xelle.vercel.app";
@@ -24,6 +23,7 @@ export const ADMIN_NAV_LINKS = [
     { label: "CMS Pages", href: "/admin/pages", icon: "file" },
     { label: "Inventory", href: "/admin/inventory", icon: "box" },
     { label: "Coupons", href: "/admin/coupons", icon: "ticket" },
+    { label: "Delivery", href: "/admin/delivery", icon: "truck" },
     { label: "Settings", href: "/admin/settings", icon: "cog" },
     { label: "Categories", href: "/admin/categories", icon: "tag" },
 ] as const;

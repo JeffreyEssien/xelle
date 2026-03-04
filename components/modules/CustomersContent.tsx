@@ -146,8 +146,8 @@ export default function CustomersContent({ customers }: CustomersContentProps) {
                     </div>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
+                {/* Table (Desktop) */}
+                <div className="hidden md:block overflow-x-auto">
                     <table className="w-full">
                         <thead>
                             <tr className="border-b border-brand-lilac/10 text-left text-xs uppercase tracking-wider text-brand-dark/50">
@@ -243,6 +243,90 @@ export default function CustomersContent({ customers }: CustomersContentProps) {
                             </AnimatePresence>
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="md:hidden flex flex-col gap-4">
+                    <AnimatePresence>
+                        {filteredCustomers.length === 0 ? (
+                            <div className="py-12 text-center text-brand-dark/40 bg-white/50 rounded-xl border border-brand-lilac/10">
+                                No customers found matching your filters.
+                            </div>
+                        ) : (
+                            filteredCustomers.map((customer) => (
+                                <motion.div
+                                    key={customer.id}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0 }}
+                                    className="bg-white rounded-xl border border-brand-lilac/20 p-4 shadow-sm"
+                                >
+                                    <div className="flex items-center justify-between border-b border-brand-lilac/10 pb-3 mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="relative h-10 w-10 rounded-full overflow-hidden bg-brand-lilac/10 border border-brand-lilac/20 flex-shrink-0">
+                                                {customer.avatarUrl ? (
+                                                    <Image src={customer.avatarUrl} alt={customer.fullName} fill className="object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-brand-purple font-serif font-bold">
+                                                        {(customer.fullName || customer.email || "?")[0].toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-brand-dark leading-tight">{customer.fullName || "Unnamed User"}</p>
+                                                <p className="text-xs text-brand-dark/50">{customer.email}</p>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            {customer.role === "admin" ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 border border-purple-200">
+                                                    <Shield size={10} />
+                                                    Admin
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                                    <User size={10} />
+                                                    Customer
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                        <div className="bg-brand-lilac/5 rounded-lg p-2.5 border border-brand-lilac/10">
+                                            <p className="text-[10px] uppercase text-brand-dark/40 mb-1">Total Spent</p>
+                                            <p className="font-medium text-brand-dark">{formatCurrency(customer.totalSpent)}</p>
+                                        </div>
+                                        <div className="bg-brand-lilac/5 rounded-lg p-2.5 border border-brand-lilac/10">
+                                            <p className="text-[10px] uppercase text-brand-dark/40 mb-1">Orders</p>
+                                            <p className="font-medium text-brand-dark flex flex-row items-center gap-1">
+                                                <ShoppingBag size={12} className="text-brand-dark/40" />
+                                                <span>{customer.orderCount}</span>
+                                            </p>
+                                        </div>
+                                        <div className="bg-brand-lilac/5 rounded-lg p-2.5 border border-brand-lilac/10 col-span-2 flex justify-between items-center">
+                                            <div>
+                                                <p className="text-[10px] uppercase text-brand-dark/40 mb-0.5">Joined</p>
+                                                <p className="text-xs text-brand-dark/70 font-medium">
+                                                    {new Date(customer.createdAt).toLocaleDateString(undefined, {
+                                                        month: 'short', day: 'numeric', year: 'numeric'
+                                                    })}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button className="p-1.5 hover:bg-white rounded-md text-brand-dark/60 hover:text-brand-purple transition-colors border border-transparent hover:border-brand-lilac/20 shadow-sm" title="Email Customer">
+                                                    <Mail size={14} />
+                                                </button>
+                                                <button className="p-1.5 hover:bg-white rounded-md text-brand-dark/60 hover:text-brand-purple transition-colors border border-transparent hover:border-brand-lilac/20 shadow-sm" title="View Details">
+                                                    <MoreVertical size={14} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            ))
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 {/* Pagination (Visual Only for now) */}

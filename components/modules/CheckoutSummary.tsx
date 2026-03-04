@@ -4,25 +4,20 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { useCartStore } from "@/lib/cartStore";
 import { formatCurrency } from "@/lib/formatCurrency";
-import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD as DEFAULT_FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
 import CouponInput from "@/components/modules/CouponInput";
-import { Package } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getSiteSettings } from "@/lib/queries";
+import { Package, MapPin } from "lucide-react";
 
-export default function CheckoutSummary() {
+interface CheckoutSummaryProps {
+    shippingFee: number;
+}
+
+export default function CheckoutSummary({ shippingFee }: CheckoutSummaryProps) {
     const { items, subtotal, discount } = useCartStore();
-    const [freeShippingSetting, setFreeShippingSetting] = useState<number | null>(null);
-
-    useEffect(() => {
-        getSiteSettings().then(settings => setFreeShippingSetting(settings?.freeShippingThreshold ?? null)).catch(() => { });
-    }, []);
 
     const sub = subtotal();
-    const freeShippingThreshold = freeShippingSetting !== null ? freeShippingSetting : DEFAULT_FREE_SHIPPING_THRESHOLD;
-    const shipping = sub >= freeShippingThreshold ? 0 : SHIPPING_RATE;
+    const shipping = shippingFee;
     const discountAmount = sub * (discount / 100);
-    const total = Math.max(0, sub - discountAmount + shipping);
+    const total = Math.max(0, sub - discountAmount) + shipping;
 
     return (
         <motion.div
@@ -74,12 +69,17 @@ export default function CheckoutSummary() {
                         <span className="text-emerald-600 font-medium">-{formatCurrency(discountAmount)}</span>
                     </div>
                 )}
-                <Row label="Shipping" value={shipping === 0 ? "Free" : formatCurrency(shipping)} />
-                {shipping > 0 && (
-                    <p className="text-[10px] text-brand-dark/30">
-                        Free shipping on orders over {formatCurrency(freeShippingThreshold)}
-                    </p>
-                )}
+                <div className="flex justify-between text-sm text-brand-dark/50">
+                    <span className="flex items-center gap-1.5">
+                        <MapPin size={12} className="text-brand-dark/30" />
+                        Delivery
+                    </span>
+                    <span className="font-medium text-brand-dark/70">
+                        {shipping > 0 ? formatCurrency(shipping) : (
+                            <span className="text-brand-dark/30 italic text-xs">Select location</span>
+                        )}
+                    </span>
+                </div>
             </div>
 
             <div className="border-t border-brand-lilac/10 mt-4 pt-4">

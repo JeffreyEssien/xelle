@@ -5,27 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cartStore";
 import { formatCurrency } from "@/lib/formatCurrency";
-import { SHIPPING_RATE, FREE_SHIPPING_THRESHOLD as DEFAULT_FREE_SHIPPING_THRESHOLD } from "@/lib/constants";
 import Button from "@/components/ui/Button";
-import { X, Minus, Plus, Trash2, ShoppingBag, ArrowRight, Sparkles } from "lucide-react";
-import { useState, useEffect } from "react";
-import { getSiteSettings } from "@/lib/queries";
+import { X, Minus, Plus, Trash2, ShoppingBag, ArrowRight, Truck } from "lucide-react";
 
 export default function CartDrawer() {
     const { items, isOpen, close, subtotal } = useCartStore();
-    const [freeShippingSetting, setFreeShippingSetting] = useState<number | null>(null);
-
-    useEffect(() => {
-        if (isOpen) {
-            getSiteSettings().then(settings => setFreeShippingSetting(settings?.freeShippingThreshold ?? null)).catch(() => { });
-        }
-    }, [isOpen]);
-
     const sub = subtotal();
-    const freeShippingThreshold = freeShippingSetting !== null ? freeShippingSetting : DEFAULT_FREE_SHIPPING_THRESHOLD;
-    const shipping = sub >= freeShippingThreshold ? 0 : SHIPPING_RATE;
-    const freeShippingRemaining = freeShippingThreshold - sub;
-    const shippingProgress = Math.min((sub / freeShippingThreshold) * 100, 100);
 
     return (
         <AnimatePresence>
@@ -65,29 +50,13 @@ export default function CartDrawer() {
                             </button>
                         </div>
 
-                        {/* Free shipping progress */}
+                        {/* Delivery info banner */}
                         {items.length > 0 && (
                             <div className="px-6 py-3 bg-gradient-to-r from-brand-lilac/[0.03] to-brand-purple/[0.03] border-b border-brand-lilac/8">
-                                {freeShippingRemaining > 0 ? (
-                                    <>
-                                        <p className="text-xs text-brand-dark/50 mb-2">
-                                            Add <span className="font-semibold text-brand-purple">{formatCurrency(freeShippingRemaining)}</span> more for free shipping
-                                        </p>
-                                        <div className="h-1 bg-brand-lilac/10 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                animate={{ width: `${shippingProgress}%` }}
-                                                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                                                className="h-full bg-gradient-to-r from-brand-purple to-brand-lilac rounded-full"
-                                            />
-                                        </div>
-                                    </>
-                                ) : (
-                                    <p className="text-xs text-emerald-600 font-medium flex items-center justify-center gap-1.5">
-                                        <Sparkles size={12} />
-                                        You qualify for free shipping!
-                                    </p>
-                                )}
+                                <p className="text-xs text-brand-dark/40 flex items-center gap-2">
+                                    <Truck size={13} className="text-brand-purple shrink-0" />
+                                    Delivery fee is calculated at checkout based on your location
+                                </p>
                             </div>
                         )}
 
@@ -120,13 +89,11 @@ export default function CartDrawer() {
                                 </div>
                                 <div className="flex justify-between text-sm text-brand-dark/50">
                                     <span>Shipping</span>
-                                    <span className={shipping === 0 ? "text-emerald-600 font-medium" : "font-medium text-brand-dark"}>
-                                        {shipping === 0 ? "Free" : formatCurrency(shipping)}
-                                    </span>
+                                    <span className="text-xs text-brand-dark/30 italic">Calculated at checkout</span>
                                 </div>
                                 <div className="flex justify-between font-semibold text-brand-dark pt-3 border-t border-brand-lilac/8">
-                                    <span>Total</span>
-                                    <span className="text-lg">{formatCurrency(sub + shipping)}</span>
+                                    <span>Subtotal</span>
+                                    <span className="text-lg">{formatCurrency(sub)}</span>
                                 </div>
                                 <Link href="/checkout" onClick={close} className="block pt-1">
                                     <Button className="w-full" size="lg">

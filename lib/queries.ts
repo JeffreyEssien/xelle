@@ -36,6 +36,9 @@ interface DbOrder {
     payment_method?: string;
     sender_name?: string;
     payment_status?: string;
+    delivery_zone?: string;
+    delivery_type?: string;
+    delivery_discount?: { percent: number; label: string | null };
 }
 
 function toProduct(row: DbProduct): Product {
@@ -75,6 +78,9 @@ function toOrder(row: DbOrder): Order {
         paymentMethod: (row.payment_method as Order["paymentMethod"]) || undefined,
         senderName: row.sender_name || undefined,
         paymentStatus: (row.payment_status as Order["paymentStatus"]) || undefined,
+        deliveryZone: row.delivery_zone || undefined,
+        deliveryType: (row.delivery_type as Order["deliveryType"]) || undefined,
+        deliveryDiscount: row.delivery_discount || undefined,
     };
 }
 
@@ -216,6 +222,44 @@ export async function getOrders(): Promise<Order[]> {
     return (data as DbOrder[]).map(toOrder);
 }
 
+/** Fetch only orders created after a given timestamp (for notifications polling) */
+export async function getRecentOrders(since: string, limit = 10): Promise<Order[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+    if (error) throw error;
+    return (data as DbOrder[]).map(toOrder);
+}
+
+/** Fetch orders with pending payment submissions */
+export async function getPendingPaymentOrders(): Promise<Order[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("payment_status", "payment_submitted")
+        .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data as DbOrder[]).map(toOrder);
+}
+
+/** Get total order count (lightweight) */
+export async function getOrderCount(): Promise<number> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return 0;
+    const { count, error } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true });
+    if (error) return 0;
+    return count ?? 0;
+}
+
 export async function getOrderById(id: string): Promise<Order | null> {
     const supabase = getSupabaseClient();
     if (!supabase) return null;
@@ -276,6 +320,9 @@ export async function createOrder(order: Order): Promise<void> {
     if (order.paymentMethod) insertData.payment_method = order.paymentMethod;
     if (order.paymentStatus) insertData.payment_status = order.paymentStatus;
     if (order.senderName) insertData.sender_name = order.senderName;
+    if (order.deliveryZone) insertData.delivery_zone = order.deliveryZone;
+    if (order.deliveryType) insertData.delivery_type = order.deliveryType;
+    if (order.deliveryDiscount) insertData.delivery_discount = order.deliveryDiscount;
 
     const { error } = await supabase.from("orders").insert(insertData);
 
@@ -306,6 +353,7 @@ export interface CreateProductInput {
     price: number;
     stock: number;
     category: string;
+    brand?: string;
     images: string[];
     variants: Product["variants"];
     inventoryId?: string; // Link to inventory source
@@ -326,7 +374,7 @@ export async function createProduct(input: CreateProductInput): Promise<void> {
         description: input.description,
         price: input.price,
         category: input.category,
-        brand: "",
+        brand: input.brand || "XELLÉ",
         stock: input.stock,
         images: input.images,
         variants: input.variants,
@@ -345,18 +393,22 @@ export async function updateProduct(id: string, input: CreateProductInput): Prom
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
+    const updateData: any = {
+        slug,
+        name: input.name,
+        description: input.description,
+        price: input.price,
+        category: input.category,
+        stock: input.stock,
+        images: input.images,
+        variants: input.variants,
+    };
+    if (input.brand !== undefined) updateData.brand = input.brand;
+    if (input.inventoryId !== undefined) updateData.inventory_item_id = input.inventoryId;
+
     const { error } = await supabase
         .from("products")
-        .update({
-            slug,
-            name: input.name,
-            description: input.description,
-            price: input.price,
-            category: input.category,
-            stock: input.stock,
-            images: input.images,
-            variants: input.variants,
-        })
+        .update(updateData)
         .eq("id", id);
 
     if (error) throw error;
@@ -412,7 +464,23 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
         ourStoryText: data.our_story_text,
         whyXelleHeading: data.why_xelle_heading,
         whyXelleFeatures: data.why_xelle_features,
-        freeShippingThreshold: data.free_shipping_threshold,
+        // Announcement bar
+        announcementBarEnabled: data.announcement_bar_enabled,
+        announcementBarText: data.announcement_bar_text,
+        announcementBarColor: data.announcement_bar_color,
+        // Social links
+        socialInstagram: data.social_instagram,
+        socialTwitter: data.social_twitter,
+        socialTiktok: data.social_tiktok,
+        socialFacebook: data.social_facebook,
+        // Business contact
+        businessPhone: data.business_phone,
+        businessWhatsapp: data.business_whatsapp,
+        businessAddress: data.business_address,
+        // Footer
+        footerTagline: data.footer_tagline,
+        // Shipping
+        freeShippingThreshold: data.free_shipping_threshold != null ? Number(data.free_shipping_threshold) : undefined,
     };
 }
 
@@ -433,6 +501,22 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
     if (settings.ourStoryText !== undefined) dbSettings.our_story_text = settings.ourStoryText;
     if (settings.whyXelleHeading !== undefined) dbSettings.why_xelle_heading = settings.whyXelleHeading;
     if (settings.whyXelleFeatures !== undefined) dbSettings.why_xelle_features = settings.whyXelleFeatures;
+    // Announcement bar
+    if (settings.announcementBarEnabled !== undefined) dbSettings.announcement_bar_enabled = settings.announcementBarEnabled;
+    if (settings.announcementBarText !== undefined) dbSettings.announcement_bar_text = settings.announcementBarText;
+    if (settings.announcementBarColor !== undefined) dbSettings.announcement_bar_color = settings.announcementBarColor;
+    // Social links
+    if (settings.socialInstagram !== undefined) dbSettings.social_instagram = settings.socialInstagram;
+    if (settings.socialTwitter !== undefined) dbSettings.social_twitter = settings.socialTwitter;
+    if (settings.socialTiktok !== undefined) dbSettings.social_tiktok = settings.socialTiktok;
+    if (settings.socialFacebook !== undefined) dbSettings.social_facebook = settings.socialFacebook;
+    // Business contact
+    if (settings.businessPhone !== undefined) dbSettings.business_phone = settings.businessPhone;
+    if (settings.businessWhatsapp !== undefined) dbSettings.business_whatsapp = settings.businessWhatsapp;
+    if (settings.businessAddress !== undefined) dbSettings.business_address = settings.businessAddress;
+    // Footer
+    if (settings.footerTagline !== undefined) dbSettings.footer_tagline = settings.footerTagline;
+    // Shipping
     if (settings.freeShippingThreshold !== undefined) dbSettings.free_shipping_threshold = settings.freeShippingThreshold;
 
     // init if not exists, otherwise update
@@ -756,5 +840,209 @@ export async function deletePage(id: string): Promise<void> {
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("pages").delete().eq("id", id);
+    if (error) throw error;
+}
+
+/* ── Delivery Zones & Locations ── */
+
+export interface DbDeliveryZone {
+    id: string;
+    name: string;
+    zone_type: "lagos" | "interstate";
+    base_fee: number | null;
+    allows_hub_pickup: boolean;
+    hub_estimate: string | null;
+    doorstep_estimate: string | null;
+    discount_percent: number;
+    discount_label: string | null;
+    is_active: boolean;
+    sort_order: number;
+    created_at: string;
+}
+
+export interface DbDeliveryLocation {
+    id: string;
+    zone_id: string;
+    name: string;
+    hub_pickup_fee: number | null;
+    doorstep_fee: number | null;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface DeliveryZoneWithLocations extends DbDeliveryZone {
+    locations: DbDeliveryLocation[];
+}
+
+export async function getDeliveryZones(): Promise<DeliveryZoneWithLocations[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data: zones, error: zErr } = await supabase
+        .from("delivery_zones")
+        .select("*")
+        .order("sort_order", { ascending: true });
+    if (zErr) { console.error("Error fetching delivery zones:", zErr); return []; }
+
+    const { data: locations, error: lErr } = await supabase
+        .from("delivery_locations")
+        .select("*")
+        .order("name", { ascending: true });
+    if (lErr) { console.error("Error fetching delivery locations:", lErr); return []; }
+
+    return (zones as DbDeliveryZone[]).map((z) => ({
+        ...z,
+        base_fee: z.base_fee != null ? Number(z.base_fee) : null,
+        discount_percent: Number(z.discount_percent),
+        locations: (locations as DbDeliveryLocation[])
+            .filter((l) => l.zone_id === z.id)
+            .map((l) => ({
+                ...l,
+                hub_pickup_fee: l.hub_pickup_fee != null ? Number(l.hub_pickup_fee) : null,
+                doorstep_fee: l.doorstep_fee != null ? Number(l.doorstep_fee) : null,
+            })),
+    }));
+}
+
+/** Customer-facing: only active zones + active locations */
+export async function getActiveDeliveryPricing(): Promise<DeliveryZoneWithLocations[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data: zones, error: zErr } = await supabase
+        .from("delivery_zones")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+    if (zErr) return [];
+
+    const { data: locations, error: lErr } = await supabase
+        .from("delivery_locations")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+    if (lErr) return [];
+
+    return (zones as DbDeliveryZone[]).map((z) => ({
+        ...z,
+        base_fee: z.base_fee != null ? Number(z.base_fee) : null,
+        discount_percent: Number(z.discount_percent),
+        locations: (locations as DbDeliveryLocation[])
+            .filter((l) => l.zone_id === z.id)
+            .map((l) => ({
+                ...l,
+                hub_pickup_fee: l.hub_pickup_fee != null ? Number(l.hub_pickup_fee) : null,
+                doorstep_fee: l.doorstep_fee != null ? Number(l.doorstep_fee) : null,
+            })),
+    }));
+}
+
+export async function createDeliveryZone(zone: {
+    name: string;
+    zoneType: "lagos" | "interstate";
+    baseFee?: number;
+    allowsHubPickup?: boolean;
+    hubEstimate?: string;
+    doorstepEstimate?: string;
+    discountPercent?: number;
+    discountLabel?: string;
+    sortOrder?: number;
+}): Promise<string> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { data, error } = await supabase.from("delivery_zones").insert({
+        name: zone.name,
+        zone_type: zone.zoneType,
+        base_fee: zone.baseFee ?? null,
+        allows_hub_pickup: zone.allowsHubPickup ?? false,
+        hub_estimate: zone.hubEstimate ?? null,
+        doorstep_estimate: zone.doorstepEstimate ?? null,
+        discount_percent: zone.discountPercent ?? 0,
+        discount_label: zone.discountLabel ?? null,
+        sort_order: zone.sortOrder ?? 0,
+    }).select("id").single();
+    if (error) throw error;
+    return data.id;
+}
+
+export async function updateDeliveryZone(id: string, updates: {
+    name?: string;
+    baseFee?: number | null;
+    allowsHubPickup?: boolean;
+    hubEstimate?: string | null;
+    doorstepEstimate?: string | null;
+    discountPercent?: number;
+    discountLabel?: string | null;
+    isActive?: boolean;
+    sortOrder?: number;
+}): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const db: any = {};
+    if (updates.name !== undefined) db.name = updates.name;
+    if (updates.baseFee !== undefined) db.base_fee = updates.baseFee;
+    if (updates.allowsHubPickup !== undefined) db.allows_hub_pickup = updates.allowsHubPickup;
+    if (updates.hubEstimate !== undefined) db.hub_estimate = updates.hubEstimate;
+    if (updates.doorstepEstimate !== undefined) db.doorstep_estimate = updates.doorstepEstimate;
+    if (updates.discountPercent !== undefined) db.discount_percent = updates.discountPercent;
+    if (updates.discountLabel !== undefined) db.discount_label = updates.discountLabel;
+    if (updates.isActive !== undefined) db.is_active = updates.isActive;
+    if (updates.sortOrder !== undefined) db.sort_order = updates.sortOrder;
+
+    const { error } = await supabase.from("delivery_zones").update(db).eq("id", id);
+    if (error) throw error;
+}
+
+export async function deleteDeliveryZone(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+    const { error } = await supabase.from("delivery_zones").delete().eq("id", id);
+    if (error) throw error;
+}
+
+export async function createDeliveryLocation(loc: {
+    zoneId: string;
+    name: string;
+    hubPickupFee?: number | null;
+    doorstepFee?: number | null;
+}): Promise<string> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { data, error } = await supabase.from("delivery_locations").insert({
+        zone_id: loc.zoneId,
+        name: loc.name,
+        hub_pickup_fee: loc.hubPickupFee ?? null,
+        doorstep_fee: loc.doorstepFee ?? null,
+    }).select("id").single();
+    if (error) throw error;
+    return data.id;
+}
+
+export async function updateDeliveryLocation(id: string, updates: {
+    name?: string;
+    hubPickupFee?: number | null;
+    doorstepFee?: number | null;
+    isActive?: boolean;
+}): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const db: any = {};
+    if (updates.name !== undefined) db.name = updates.name;
+    if (updates.hubPickupFee !== undefined) db.hub_pickup_fee = updates.hubPickupFee;
+    if (updates.doorstepFee !== undefined) db.doorstep_fee = updates.doorstepFee;
+    if (updates.isActive !== undefined) db.is_active = updates.isActive;
+
+    const { error } = await supabase.from("delivery_locations").update(db).eq("id", id);
+    if (error) throw error;
+}
+
+export async function deleteDeliveryLocation(id: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+    const { error } = await supabase.from("delivery_locations").delete().eq("id", id);
     if (error) throw error;
 }

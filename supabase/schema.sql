@@ -47,8 +47,11 @@ CREATE TABLE IF NOT EXISTS orders (
   coupon_code TEXT,
   discount_total NUMERIC(10,2) DEFAULT 0,
   payment_method TEXT,
-  proof_of_payment TEXT,
+  sender_name TEXT,
   payment_status TEXT DEFAULT 'pending',
+  delivery_zone TEXT,
+  delivery_type TEXT,
+  delivery_discount JSONB,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -64,6 +67,29 @@ CREATE TABLE IF NOT EXISTS site_settings (
   hero_image TEXT,
   hero_cta_text TEXT,
   hero_cta_link TEXT,
+  -- Favicon & content
+  favicon_url TEXT,
+  our_story_heading TEXT,
+  our_story_text TEXT,
+  why_xelle_heading TEXT,
+  why_xelle_features TEXT,
+  -- Announcement bar
+  announcement_bar_enabled BOOLEAN DEFAULT FALSE,
+  announcement_bar_text TEXT,
+  announcement_bar_color TEXT DEFAULT '#B665D2',
+  -- Social links
+  social_instagram TEXT,
+  social_twitter TEXT,
+  social_tiktok TEXT,
+  social_facebook TEXT,
+  -- Business contact
+  business_phone TEXT,
+  business_whatsapp TEXT,
+  business_address TEXT,
+  -- Footer
+  footer_tagline TEXT,
+  -- Shipping
+  free_shipping_threshold NUMERIC(10,2) DEFAULT 50000,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -146,6 +172,35 @@ CREATE TABLE IF NOT EXISTS coupons (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 10. Delivery Zones
+CREATE TABLE IF NOT EXISTS delivery_zones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  zone_type TEXT NOT NULL CHECK (zone_type IN ('lagos', 'interstate')),
+  base_fee NUMERIC(10,2),
+  allows_hub_pickup BOOLEAN DEFAULT FALSE,
+  hub_estimate TEXT,
+  doorstep_estimate TEXT,
+  discount_percent NUMERIC(5,2) DEFAULT 0,
+  discount_label TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 11. Delivery Locations
+CREATE TABLE IF NOT EXISTS delivery_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  zone_id UUID REFERENCES delivery_zones(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  hub_pickup_fee NUMERIC(10,2),
+  doorstep_fee NUMERIC(10,2),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_delivery_locations_zone ON delivery_locations(zone_id);
+
 -- ==============================================
 -- Row Level Security
 -- ==============================================
@@ -159,6 +214,8 @@ ALTER TABLE pages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_zones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE delivery_locations ENABLE ROW LEVEL SECURITY;
 
 -- Public read
 CREATE POLICY "Public read categories" ON categories FOR SELECT USING (true);
@@ -166,6 +223,8 @@ CREATE POLICY "Public read products" ON products FOR SELECT USING (true);
 CREATE POLICY "Public read site_settings" ON site_settings FOR SELECT USING (true);
 CREATE POLICY "Public read published pages" ON pages FOR SELECT USING (is_published = true);
 CREATE POLICY "Public read active coupons" ON coupons FOR SELECT USING (is_active = true);
+CREATE POLICY "Public read delivery_zones" ON delivery_zones FOR SELECT USING (true);
+CREATE POLICY "Public read delivery_locations" ON delivery_locations FOR SELECT USING (true);
 
 -- Orders: public insert (customers place orders), service read/update
 CREATE POLICY "Public insert orders" ON orders FOR INSERT WITH CHECK (true);
@@ -178,6 +237,8 @@ CREATE POLICY "Admin read inventory_logs" ON inventory_logs FOR SELECT USING (tr
 CREATE POLICY "Public insert inventory_logs" ON inventory_logs FOR INSERT WITH CHECK (true);
 CREATE POLICY "Admin all pages" ON pages FOR ALL USING (true);
 CREATE POLICY "Admin manage coupons" ON coupons FOR ALL USING (true);
+CREATE POLICY "Admin manage delivery_zones" ON delivery_zones FOR ALL USING (true);
+CREATE POLICY "Admin manage delivery_locations" ON delivery_locations FOR ALL USING (true);
 CREATE POLICY "Admin insert site_settings" ON site_settings FOR INSERT WITH CHECK (true);
 CREATE POLICY "Admin update site_settings" ON site_settings FOR UPDATE USING (true);
 

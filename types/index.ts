@@ -78,6 +78,10 @@ export interface Order {
     paymentMethod?: "whatsapp" | "bank_transfer";
     senderName?: string;
     paymentStatus?: "awaiting_payment" | "payment_submitted" | "payment_confirmed";
+    // Delivery details
+    deliveryZone?: string;
+    deliveryType?: "doorstep" | "hub_pickup";
+    deliveryDiscount?: { percent: number; label: string | null };
 }
 
 export interface SiteSettings {

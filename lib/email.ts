@@ -118,7 +118,9 @@ function buildReceiptHtml(order: Order): string {
         <p style="font-size: 14px; color: #1a1a2e; margin: 0 0 2px 0; font-weight: 500;">${order.customerName}</p>
         <p style="font-size: 13px; color: #666; margin: 0 0 2px 0;">${a.address}</p>
         <p style="font-size: 13px; color: #666; margin: 0 0 2px 0;">${a.city}, ${a.state} ${a.zip}</p>
-        <p style="font-size: 13px; color: #666; margin: 0;">${a.country}</p>
+        <p style="font-size: 13px; color: #666; margin: 0;">Nigeria</p>
+        ${order.deliveryZone ? `<p style="font-size: 12px; color: #7c3aed; margin: 8px 0 0 0; font-weight: 500;">📍 Zone: ${order.deliveryZone} &bull; ${order.deliveryType === 'hub_pickup' ? 'Hub Pickup' : 'Doorstep Delivery'}</p>` : ''}
+        ${order.deliveryDiscount ? `<p style="font-size: 11px; color: #10b981; margin: 4px 0 0 0;">🎉 ${order.deliveryDiscount.percent}% delivery discount applied${order.deliveryDiscount.label ? ` (${order.deliveryDiscount.label})` : ''}</p>` : ''}
       </div>
 
       ${order.paymentMethod === "bank_transfer" ? `
@@ -167,14 +169,20 @@ function buildAdminNotificationHtml(order: Order): string {
       <p><strong>Customer:</strong> ${order.customerName}</p>
       <p><strong>Email:</strong> ${order.email}</p>
       <p><strong>Phone:</strong> ${order.phone}</p>
-      <p><strong>Address:</strong> ${a.address}, ${a.city}, ${a.state} ${a.zip}, ${a.country}</p>
+      <p><strong>Address:</strong> ${a.address}, ${a.city}, ${a.state}, Nigeria</p>
+      ${order.deliveryZone ? `<p><strong>Delivery Zone:</strong> ${order.deliveryZone}</p>` : ''}
+      ${order.deliveryType ? `<p><strong>Delivery Type:</strong> ${order.deliveryType === 'hub_pickup' ? 'Hub Pickup' : 'Doorstep Delivery'}</p>` : ''}
+      ${order.deliveryDiscount ? `<p style="color: #10b981;"><strong>Delivery Discount:</strong> ${order.deliveryDiscount.percent}% off${order.deliveryDiscount.label ? ` (${order.deliveryDiscount.label})` : ''}</p>` : ''}
       <hr style="border: none; border-top: 1px solid #f3f0f7; margin: 16px 0;">
       <p><strong>Items:</strong></p>
       <ul style="padding-left: 20px;">
         ${order.items.map(i => `<li>${i.product.name} ×${i.quantity} — ₦${((i.variant?.price || i.product.price) * i.quantity).toLocaleString()}</li>`).join("")}
       </ul>
       <hr style="border: none; border-top: 1px solid #f3f0f7; margin: 16px 0;">
-      <p><strong>Total: ₦${order.total.toLocaleString()}</strong></p>
+      <p><strong>Subtotal:</strong> ₦${order.subtotal.toLocaleString()}</p>
+      ${order.discountTotal ? `<p style="color: #10b981;"><strong>Coupon Discount${order.couponCode ? ` (${order.couponCode})` : ''}:</strong> -₦${order.discountTotal.toLocaleString()}</p>` : ''}
+      <p><strong>Shipping:</strong> ${order.shipping === 0 ? 'Free' : `₦${order.shipping.toLocaleString()}`}</p>
+      <p style="font-size: 18px;"><strong>Total: ₦${order.total.toLocaleString()}</strong></p>
     </div>
   </div>
 </body>

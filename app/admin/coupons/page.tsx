@@ -1,7 +1,7 @@
 import { getCoupons, deleteCoupon, toggleCouponStatus } from "@/lib/queries";
 import CouponFormWrapper from "@/components/modules/CouponFormWrapper";
 import CouponList from "@/components/modules/CouponList";
-import FreeShippingSettings from "@/components/modules/FreeShippingSettings";
+
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function AdminCouponsPage() {
                 <p className="text-brand-dark/60 text-sm">Manage discount codes.</p>
             </div>
 
-            <FreeShippingSettings />
+
 
             <CouponFormWrapper />
 

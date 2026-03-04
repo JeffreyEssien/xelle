@@ -43,8 +43,9 @@ export default async function PrintOrderPage({ params }: { params: Promise<{ id:
                     <h3 className="text-xs font-semibold text-brand-dark/40 uppercase tracking-wider mb-3">Order Details</h3>
                     <div className="text-sm text-brand-dark space-y-1">
                         <p>Status: <span className="uppercase">{order.status}</span></p>
-                        <p>Payment Method: Credit Card (Stripe)</p>
-                        <p>Shipping Method: Standard</p>
+                        <p>Payment: {order.paymentMethod === "bank_transfer" ? "Bank Transfer" : order.paymentMethod === "whatsapp" ? "WhatsApp" : "—"}</p>
+                        {order.deliveryZone && <p>Delivery Zone: {order.deliveryZone}</p>}
+                        <p>Delivery Type: {order.deliveryType === "hub_pickup" ? "Hub Pickup" : "Doorstep Delivery"}</p>
                     </div>
                 </div>
             </div>
@@ -76,11 +77,33 @@ export default async function PrintOrderPage({ params }: { params: Promise<{ id:
                 </tbody>
             </table>
 
+            {/* Totals */}
+            <div className="border-t border-black/10 pt-4 mb-12">
+                <div className="flex justify-between text-sm mb-1">
+                    <span className="text-brand-dark/60">Subtotal</span>
+                    <span>{formatCurrency(order.subtotal)}</span>
+                </div>
+                {order.discountTotal ? (
+                    <div className="flex justify-between text-sm mb-1 text-green-600">
+                        <span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span>
+                        <span>-{formatCurrency(order.discountTotal)}</span>
+                    </div>
+                ) : null}
+                <div className="flex justify-between text-sm mb-1">
+                    <span className="text-brand-dark/60">Delivery</span>
+                    <span>{order.shipping === 0 ? 'Free' : formatCurrency(order.shipping)}</span>
+                </div>
+                <div className="flex justify-between text-base font-bold mt-2 pt-2 border-t border-black/10">
+                    <span>Total</span>
+                    <span>{formatCurrency(order.total)}</span>
+                </div>
+            </div>
+
             {/* Footer */}
             <div className="border-t-2 border-brand-purple pt-8 text-center">
                 <p className="text-brand-dark font-serif text-lg mb-2">Thank you!</p>
                 <p className="text-sm text-brand-dark/50">
-                    If you have any questions about this shipment, please contact us at help@xelle.com
+                    If you have any questions about this order, reach out to us on WhatsApp.
                 </p>
             </div>
 

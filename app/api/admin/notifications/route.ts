@@ -1,40 +1,22 @@
 import { NextResponse } from "next/server";
-import { getOrders } from "@/lib/queries";
+import { getRecentOrders, getPendingPaymentOrders, getOrderCount } from "@/lib/queries";
 
 // This endpoint returns recent orders for the notification polling system.
-// The admin frontend polls this every 30 seconds to detect new orders and status changes.
+// Uses DB-level filtering for efficiency instead of fetching all orders.
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const since = searchParams.get("since"); // ISO timestamp
 
-        const allOrders = await getOrders();
-
-        // Filter to orders created or updated after the "since" timestamp
-        let recentOrders = allOrders;
-        if (since) {
-            const sinceDate = new Date(since).getTime();
-            recentOrders = allOrders.filter((o) => {
-                return new Date(o.createdAt).getTime() > sinceDate;
-            });
-        }
-
-        // Also check for orders with pending payment submissions
-        const pendingPayments = allOrders.filter(
-            (o) => o.paymentStatus === "payment_submitted"
-        );
-
-        // Check for low-stock items
-        const lowStockOrders = allOrders
-            .flatMap((o) => o.items)
-            .filter((item) => item.product.stock <= 5)
-            .map((item) => ({
-                productName: item.product.name,
-                stock: item.product.stock,
-            }));
+        // Run queries in parallel — all use DB-level filtering
+        const [recentOrders, pendingPayments, totalOrders] = await Promise.all([
+            since ? getRecentOrders(since, 10) : Promise.resolve([]),
+            getPendingPaymentOrders(),
+            getOrderCount(),
+        ]);
 
         return NextResponse.json({
-            recentOrders: recentOrders.slice(0, 10).map((o) => ({
+            recentOrders: recentOrders.map((o) => ({
                 id: o.id,
                 customerName: o.customerName,
                 total: o.total,
@@ -50,7 +32,7 @@ export async function GET(request: Request) {
                 total: o.total,
                 senderName: o.senderName,
             })),
-            totalOrders: allOrders.length,
+            totalOrders,
         });
     } catch (error) {
         console.error("Notifications API error:", error);

@@ -17,7 +17,8 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                     View All
                 </Link>
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-neutral-50 text-brand-dark/60 font-medium">
                         <tr>
@@ -56,6 +57,35 @@ export default function RecentOrdersTable({ orders }: RecentOrdersTableProps) {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden flex flex-col divide-y divide-brand-lilac/10">
+                {orders.length === 0 ? (
+                    <div className="px-6 py-8 text-center text-brand-dark/40 text-sm">
+                        No orders yet.
+                    </div>
+                ) : (
+                    orders.map((order) => (
+                        <div key={order.id} className="p-4 flex flex-col gap-3 hover:bg-neutral-50/50 transition-colors">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-medium text-brand-dark text-sm">{order.customerName}</p>
+                                    <p className="font-mono text-[10px] text-brand-dark/50 mt-0.5">#{order.id.slice(0, 8)}</p>
+                                </div>
+                                <Badge status={order.status} />
+                            </div>
+                            <div className="flex justify-between items-end text-sm">
+                                <span className="text-brand-dark/60 text-xs">
+                                    {new Date(order.createdAt).toLocaleDateString()}
+                                </span>
+                                <span className="font-bold text-brand-dark">
+                                    {formatCurrency(order.total)}
+                                </span>
+                            </div>
+                        </div>
+                    ))
+                )}
             </div>
         </div>
     );
