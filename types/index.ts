@@ -27,6 +27,7 @@ export interface Product {
     category: string;
     brand: string;
     inventoryId?: string; // Optional during migration
+    costPrice?: number; // From linked InventoryItem, snapshotted into orders
     stock: number; // Mapped from InventoryItem in queries
     images: string[];
     variants: ProductVariant[];

@@ -9,11 +9,26 @@ export async function POST(request: Request) {
     const order: Order = await request.json();
 
     // Insert into Supabase
-    await createOrder(order);
+    try {
+      await createOrder(order);
+    } catch (dbErr: any) {
+      if (dbErr?.message === "OUT_OF_STOCK") {
+        return NextResponse.json({
+          success: false,
+          error: "OUT_OF_STOCK",
+          outOfStockItems: dbErr.items
+        }, { status: 409 });
+      }
+      console.error("DB insert failed:", dbErr?.message || dbErr);
+      return NextResponse.json({ success: false, error: `DB: ${dbErr?.message || "insert failed"}` }, { status: 500 });
+    }
 
     // Send emails (customer receipt + admin notification)
-    // Falls back to console logging if SMTP is not configured
-    await sendOrderEmails(order);
+    try {
+      await sendOrderEmails(order);
+    } catch (emailErr: any) {
+      console.warn("Email send failed (non-fatal):", emailErr?.message || emailErr);
+    }
 
     // Always log to console as backup
     console.log(`\n🛍️ ORDER PLACED: ${order.id}`);
@@ -22,8 +37,8 @@ export async function POST(request: Request) {
     console.log(`   Payment: ${order.paymentMethod || "not specified"}`);
 
     return NextResponse.json({ success: true, orderId: order.id });
-  } catch (err) {
-    console.error("Order error:", err);
-    return NextResponse.json({ success: false, error: "Failed to process order" }, { status: 500 });
+  } catch (err: any) {
+    console.error("Order error:", err?.message || err);
+    return NextResponse.json({ success: false, error: err?.message || "Failed to process order" }, { status: 500 });
   }
 }

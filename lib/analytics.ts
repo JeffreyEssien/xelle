@@ -149,7 +149,7 @@ export function calculateAnalytics(
             const current = productSales.get(pid) || { quantity: 0, revenue: 0 };
             productSales.set(pid, {
                 quantity: current.quantity + item.quantity,
-                revenue: current.revenue + (item.product.price * item.quantity)
+                revenue: current.revenue + ((item.variant?.price || item.product.price) * item.quantity)
             });
         });
     });
@@ -262,7 +262,7 @@ export function calculateAnalytics(
     let totalCOGS = 0;
     orders.forEach(order => {
         order.items.forEach(item => {
-            const itemCost = (item as any).costPrice || 0;
+            const itemCost = item.product.costPrice || 0;
             totalCOGS += itemCost * item.quantity;
         });
     });
@@ -289,7 +289,7 @@ export function calculateAnalytics(
         order.items.forEach(item => {
             const cat = item.product.category || "Uncategorized";
             const current = categoryMap.get(cat) || { revenue: 0, units: 0, orders: new Set<string>() };
-            current.revenue += item.product.price * item.quantity;
+            current.revenue += (item.variant?.price || item.product.price) * item.quantity;
             current.units += item.quantity;
             current.orders.add(order.id);
             categoryMap.set(cat, current);

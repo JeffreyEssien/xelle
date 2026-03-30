@@ -113,12 +113,13 @@ export async function getProducts(): Promise<Product[]> {
     if (!supabase) return [];
     const { data, error } = await supabase
         .from("products")
-        .select("*, inventory:inventory_items(stock)")
+        .select("*, inventory:inventory_items(stock, cost_price)")
         .order("created_at", { ascending: false });
     if (error) throw error;
     return (data as any[]).map(row => ({
         ...toProduct(row),
-        stock: row.inventory?.stock ?? row.stock // Fallback to local stock if valid, but prefer inventory
+        stock: row.inventory?.stock ?? row.stock,
+        costPrice: row.inventory?.cost_price ? Number(row.inventory.cost_price) : undefined,
     }));
 }
 
@@ -151,12 +152,13 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     if (!supabase) return null;
     const { data, error } = await supabase
         .from("products")
-        .select("*, inventory:inventory_items(stock)")
+        .select("*, inventory:inventory_items(stock, cost_price)")
         .eq("slug", slug)
         .single();
     if (error) return null;
     const prod = toProduct(data as DbProduct);
     prod.stock = (data as any).inventory?.stock ?? prod.stock;
+    prod.costPrice = (data as any).inventory?.cost_price ? Number((data as any).inventory.cost_price) : undefined;
     return prod;
 }
 
@@ -272,14 +274,61 @@ export async function getOrderById(id: string): Promise<Order | null> {
     return toOrder(data as DbOrder);
 }
 
-export async function createOrder(order: Order): Promise<void> {
+// Validate stock availability before order/deduction
+export async function validateStockForItems(
+    items: { product: { id: string; name: string; inventoryId?: string }; variant?: { name: string }; quantity: number }[]
+): Promise<{ name: string; requested: number; available: number }[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const outOfStockItems: { name: string; requested: number; available: number }[] = [];
+
+    for (const item of items) {
+        if (item.variant) {
+            const { data: prod } = await supabase
+                .from("products")
+                .select("variants")
+                .eq("id", item.product.id)
+                .single();
+            const variants = (prod?.variants || []) as { name: string; stock?: number }[];
+            const v = variants.find(v => v.name === item.variant!.name);
+            const available = v?.stock ?? 0;
+            if (available < item.quantity) {
+                outOfStockItems.push({
+                    name: `${item.product.name} - ${item.variant.name}`,
+                    requested: item.quantity,
+                    available
+                });
+            }
+        } else if (item.product.inventoryId) {
+            const { data: inv } = await supabase
+                .from("inventory_items")
+                .select("stock")
+                .eq("id", item.product.inventoryId)
+                .single();
+            const available = inv?.stock ?? 0;
+            if (available < item.quantity) {
+                outOfStockItems.push({
+                    name: item.product.name,
+                    requested: item.quantity,
+                    available
+                });
+            }
+        }
+    }
+
+    return outOfStockItems;
+}
+
+// Reusable stock deduction for orders and stockpile
+export async function deductStockForItems(
+    items: { product: { id: string; name: string; inventoryId?: string }; variant?: { name: string }; quantity: number }[]
+): Promise<void> {
     const supabase = getSupabaseClient();
     if (!supabase) throw new Error("Database not available");
 
-    // Deduct stock atomically via RPC (prevents race conditions)
-    for (const item of order.items) {
+    for (const item of items) {
         if (item.variant) {
-            // Deduct from variant stock inside the products JSONB array
             const { error: rpcError } = await supabase.rpc("deduct_variant_stock", {
                 p_product_id: item.product.id,
                 p_variant_name: item.variant.name,
@@ -287,37 +336,52 @@ export async function createOrder(order: Order): Promise<void> {
             });
 
             if (rpcError) {
-                throw new Error(rpcError.message || `Variant stock deduction failed for ${item.product.name} - ${item.variant.name}`);
+                if (rpcError.message.includes('Insufficient stock')) throw rpcError;
+                console.warn(`Variant stock deduction failed for ${item.product.name} - ${item.variant.name}:`, rpcError.message);
+            } else {
+                const { error: logError } = await supabase.from("inventory_logs").insert({
+                    product_id: item.product.id,
+                    change_amount: -item.quantity,
+                    reason: `order_variant_${item.variant.name}`
+                });
+                if (logError) console.warn("Inventory log failed (variant):", logError.message);
             }
 
-            // Log inventory change for the variant
-            const { error: logError } = await supabase.from("inventory_logs").insert({
-                product_id: item.product.id,
-                change_amount: -item.quantity,
-                reason: `order_variant_${item.variant.name}`
-            });
-            if (logError) console.warn("Inventory log failed (variant):", logError.message);
-
         } else if (item.product.inventoryId) {
-            // Deduct from main inventory item stock (for non-variant products)
             const { error: rpcError } = await supabase.rpc("deduct_stock", {
                 p_inventory_id: item.product.inventoryId,
                 p_quantity: item.quantity,
             });
 
             if (rpcError) {
-                throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name}`);
+                if (rpcError.message.includes('Insufficient stock')) throw rpcError;
+                console.warn(`Stock deduction failed for ${item.product.name}:`, rpcError.message);
+            } else {
+                const { error: logError } = await supabase.from("inventory_logs").insert({
+                    product_id: item.product.id,
+                    change_amount: -item.quantity,
+                    reason: 'order_main'
+                });
+                if (logError) console.warn("Inventory log failed:", logError.message);
             }
-
-            // Log the inventory change (best-effort, ignore failures)
-            const { error: logError } = await supabase.from("inventory_logs").insert({
-                product_id: item.product.id,
-                change_amount: -item.quantity,
-                reason: 'order_main'
-            });
-            if (logError) console.warn("Inventory log failed:", logError.message);
         }
     }
+}
+
+export async function createOrder(order: Order): Promise<void> {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error("Database not available");
+
+    // Validate stock before proceeding
+    const outOfStockItems = await validateStockForItems(order.items);
+    if (outOfStockItems.length > 0) {
+        const err = new Error("OUT_OF_STOCK");
+        (err as any).items = outOfStockItems;
+        throw err;
+    }
+
+    // Deduct stock atomically via RPC (prevents race conditions)
+    await deductStockForItems(order.items);
 
     // Insert Order with proper coupon columns (no JSON hack)
     const insertData: any = {
@@ -348,6 +412,14 @@ export async function createOrder(order: Order): Promise<void> {
     const { error } = await supabase.from("orders").insert(insertData);
 
     if (error) throw error;
+
+    // Increment coupon usage_count if a coupon was used
+    if (order.couponCode) {
+        const { error: couponErr } = await supabase.rpc('increment_coupon_usage', {
+            p_code: order.couponCode.toUpperCase()
+        });
+        if (couponErr) console.warn("Coupon usage increment failed:", couponErr.message);
+    }
 }
 
 export async function updatePaymentInfo(

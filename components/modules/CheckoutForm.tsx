@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import OutOfStockModal from "@/components/ui/OutOfStockModal";
 import { useCartStore } from "@/lib/cartStore";
 import { useOrderStore } from "@/lib/orderStore";
 import { WHATSAPP_NUMBER } from "@/lib/constants";
@@ -45,6 +46,8 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
     const { items, subtotal, clearCart, couponCode, discount, removeCoupon } = useCartStore();
     const { addOrder } = useOrderStore();
     const [stockpileMode, setStockpileMode] = useState(false);
+    const [outOfStockItems, setOutOfStockItems] = useState<{ name: string; requested: number; available: number }[]>([]);
+    const [showOutOfStock, setShowOutOfStock] = useState(false);
 
     // ── DB pricing state ──
     const [dbPricing, setDbPricing] = useState<DbPricingResult | null>(null);
@@ -285,6 +288,12 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
             const data = await res.json();
 
             if (!res.ok || !data.success) {
+                if (data.error === "OUT_OF_STOCK") {
+                    setOutOfStockItems(data.outOfStockItems || []);
+                    setShowOutOfStock(true);
+                    setLoading(false);
+                    return;
+                }
                 console.error("Order failed:", data);
                 alert(data.error || "Failed to place order. Please try again.");
                 setLoading(false);
@@ -600,6 +609,12 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
                     ? "Add to Stockpile & Pay Later for Shipping"
                     : paymentMethod === 'whatsapp' ? "Place Order & Chat on WhatsApp" : "Place Order"}
             </Button>
+
+            <OutOfStockModal
+                isOpen={showOutOfStock}
+                onClose={() => setShowOutOfStock(false)}
+                items={outOfStockItems}
+            />
         </form>
     );
 }

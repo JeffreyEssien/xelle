@@ -9,13 +9,18 @@ import {
     updateStockpileShipping,
     getAllStockpiles,
     expireOldStockpiles,
+    deductStockForItems,
 } from "@/lib/queries";
+import { getSupabaseClient } from "@/lib/supabase";
 import {
     sendStockpileCreatedEmail,
     sendStockpileItemAddedEmail,
     sendStockpileShippedEmail,
     sendStockpileExpiredEmail,
 } from "@/lib/email";
+
+let lastExpiryCheck = 0;
+const EXPIRY_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // GET: Fetch stockpile by email or ID, or all (admin)
 export async function GET(request: Request) {
@@ -25,8 +30,13 @@ export async function GET(request: Request) {
         const id = searchParams.get("id");
         const all = searchParams.get("all");
 
-        // Expire old stockpiles on every fetch & send expiry emails
-        const expiredCount = await expireOldStockpiles();
+        // Expire old stockpiles (debounced to once per 5 minutes)
+        const now = Date.now();
+        let expiredCount = 0;
+        if (now - lastExpiryCheck > EXPIRY_INTERVAL) {
+            lastExpiryCheck = now;
+            expiredCount = await expireOldStockpiles();
+        }
         if (expiredCount > 0) {
             // Fetch recently expired stockpiles to send emails
             try {
@@ -81,6 +91,30 @@ export async function POST(request: Request) {
                 return NextResponse.json(stockpile);
             }
             case "add_item": {
+                // Deduct stock when adding to stockpile (reserve inventory)
+                try {
+                    const supabase = getSupabaseClient();
+                    if (supabase) {
+                        const { data: productData } = await supabase
+                            .from("products")
+                            .select("inventory_item_id")
+                            .eq("id", body.productId)
+                            .single();
+
+                        await deductStockForItems([{
+                            product: {
+                                id: body.productId,
+                                name: body.productName,
+                                inventoryId: productData?.inventory_item_id || undefined,
+                            },
+                            variant: body.variantName ? { name: body.variantName } : undefined,
+                            quantity: body.quantity,
+                        }]);
+                    }
+                } catch (stockErr: any) {
+                    console.warn("Stockpile stock deduction failed:", stockErr?.message || stockErr);
+                }
+
                 await addStockpileItem({
                     stockpileId: body.stockpileId,
                     productId: body.productId,
