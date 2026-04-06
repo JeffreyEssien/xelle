@@ -9,15 +9,18 @@ import { Package, MapPin } from "lucide-react";
 
 interface CheckoutSummaryProps {
     shippingFee: number;
+    stockpileItems?: any[];
 }
 
-export default function CheckoutSummary({ shippingFee }: CheckoutSummaryProps) {
-    const { items, subtotal, discount } = useCartStore();
+export default function CheckoutSummary({ shippingFee, stockpileItems }: CheckoutSummaryProps) {
+    const { items: cartItems, subtotal, discount } = useCartStore();
 
-    const sub = subtotal();
+    const isStockpileShipping = stockpileItems && stockpileItems.length > 0;
+    const items = isStockpileShipping ? [] : cartItems;
+    const sub = isStockpileShipping ? 0 : subtotal();
     const shipping = shippingFee;
-    const discountAmount = sub * (discount / 100);
-    const total = Math.max(0, sub - discountAmount) + shipping;
+    const discountAmount = isStockpileShipping ? 0 : sub * (discount / 100);
+    const total = isStockpileShipping ? shipping : Math.max(0, sub - discountAmount) + shipping;
 
     return (
         <motion.div
@@ -28,11 +31,33 @@ export default function CheckoutSummary({ shippingFee }: CheckoutSummaryProps) {
         >
             <div className="flex items-center gap-2 mb-6">
                 <Package size={16} className="text-brand-purple" />
-                <h2 className="font-serif text-lg text-brand-dark">Order Summary</h2>
+                <h2 className="font-serif text-lg text-brand-dark">{isStockpileShipping ? "Shipping Summary" : "Order Summary"}</h2>
             </div>
 
             <ul className="space-y-4 mb-6">
-                {items.map((item, i) => (
+                {isStockpileShipping ? stockpileItems.map((si: any, i: number) => (
+                    <motion.li
+                        key={si.id || i}
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + i * 0.05 }}
+                        className="flex gap-3"
+                    >
+                        {si.productImage && (
+                            <div className="relative h-14 w-12 rounded-lg overflow-hidden bg-neutral-50 shrink-0 border border-brand-lilac/10">
+                                <Image src={si.productImage} alt={si.productName} fill sizes="48px" className="object-cover" />
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-brand-dark text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                                    {si.quantity}
+                                </span>
+                            </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm text-brand-dark font-medium truncate">{si.productName}</p>
+                            {si.variantName && <p className="text-[10px] text-brand-dark/35">{si.variantName}</p>}
+                            <p className="text-[10px] text-brand-dark/30">Already paid</p>
+                        </div>
+                    </motion.li>
+                )) : items.map((item, i) => (
                     <motion.li
                         key={`${item.product.id}-${item.variant?.name ?? ""}`}
                         initial={{ opacity: 0, x: 10 }}
@@ -57,13 +82,15 @@ export default function CheckoutSummary({ shippingFee }: CheckoutSummaryProps) {
                 ))}
             </ul>
 
-            <div className="mb-5">
-                <CouponInput />
-            </div>
+            {!isStockpileShipping && (
+                <div className="mb-5">
+                    <CouponInput />
+                </div>
+            )}
 
             <div className="border-t border-brand-lilac/10 pt-4 space-y-2.5">
-                <Row label="Subtotal" value={formatCurrency(sub)} />
-                {discount > 0 && (
+                {!isStockpileShipping && <Row label="Subtotal" value={formatCurrency(sub)} />}
+                {!isStockpileShipping && discount > 0 && (
                     <div className="flex justify-between text-sm">
                         <span className="text-emerald-600">Discount</span>
                         <span className="text-emerald-600 font-medium">-{formatCurrency(discountAmount)}</span>
@@ -84,7 +111,7 @@ export default function CheckoutSummary({ shippingFee }: CheckoutSummaryProps) {
 
             <div className="border-t border-brand-lilac/10 mt-4 pt-4">
                 <div className="flex justify-between font-semibold text-brand-dark">
-                    <span>Total</span>
+                    <span>{isStockpileShipping ? "Shipping Fee" : "Total"}</span>
                     <span className="text-xl">{formatCurrency(total)}</span>
                 </div>
             </div>

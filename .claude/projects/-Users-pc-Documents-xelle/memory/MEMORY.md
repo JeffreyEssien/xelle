@@ -1,0 +1,2 @@
+- [Project Architecture](project_architecture.md) — Xelle e-commerce: Next.js 16 + Supabase + Zustand, Nigerian lifestyle brand
+- [Stockpile Shipping Fix](project_stockpile_shipping.md) — Fixed stockpile "Request Shipping" navigating to empty cart instead of shipping payment

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Header from "@/components/modules/Header";
 import Footer from "@/components/modules/Footer";
@@ -20,12 +20,25 @@ type CheckoutState =
     | { step: "receipt" };
 
 export default function CheckoutPage() {
+    return (
+        <Suspense fallback={
+            <><Header /><main className="max-w-7xl mx-auto px-6 py-24 text-center"><div className="w-8 h-8 border-2 border-brand-purple/30 border-t-brand-purple rounded-full animate-spin mx-auto" /></main><Footer /></>
+        }>
+            <CheckoutPageInner />
+        </Suspense>
+    );
+}
+
+function CheckoutPageInner() {
     const { items } = useCartStore();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const stockpileId = searchParams.get("stockpile");
     const [state, setState] = useState<CheckoutState>({ step: "checkout" });
     const [shippingFee, setShippingFee] = useState(0);
+    const [stockpileItems, setStockpileItems] = useState<any[]>([]);
 
-    if (items.length === 0 && state.step === "checkout") {
+    if (items.length === 0 && !stockpileId && state.step === "checkout") {
         return (
             <>
                 <Header />
@@ -140,13 +153,15 @@ export default function CheckoutPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="font-serif text-3xl md:text-4xl text-brand-dark mb-10"
                 >
-                    Checkout
+                    {stockpileId ? "Request Shipping" : "Checkout"}
                 </motion.h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-12">
                     <div className="lg:col-span-3">
                         <CheckoutForm
                             onShippingChange={setShippingFee}
+                            stockpileId={stockpileId ?? undefined}
+                            onStockpileItemsLoaded={setStockpileItems}
                             onComplete={(orderInfo) => {
                                 if (orderInfo?.paymentMethod === "bank_transfer") {
                                     setState({
@@ -161,7 +176,7 @@ export default function CheckoutPage() {
                         />
                     </div>
                     <div className="lg:col-span-2">
-                        <CheckoutSummary shippingFee={shippingFee} />
+                        <CheckoutSummary shippingFee={shippingFee} stockpileItems={stockpileItems} />
                     </div>
                 </div>
             </main>

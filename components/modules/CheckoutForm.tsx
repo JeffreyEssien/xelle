@@ -32,6 +32,8 @@ import { toast } from "sonner";
 interface CheckoutFormProps {
     onComplete: (orderInfo?: { orderId: string; total: number; paymentMethod: "whatsapp" | "bank_transfer" }) => void;
     onShippingChange: (fee: number) => void;
+    stockpileId?: string;
+    onStockpileItemsLoaded?: (items: any[]) => void;
 }
 
 const emptyAddress: ShippingAddress = {
@@ -39,13 +41,41 @@ const emptyAddress: ShippingAddress = {
     address: "", city: "", state: "", zip: "", country: "Nigeria",
 };
 
-export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutFormProps) {
+export default function CheckoutForm({ onComplete, onShippingChange, stockpileId, onStockpileItemsLoaded }: CheckoutFormProps) {
     const [form, setForm] = useState<ShippingAddress>(emptyAddress);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
     const { items, subtotal, clearCart, couponCode, discount, removeCoupon } = useCartStore();
     const { addOrder } = useOrderStore();
     const [stockpileMode, setStockpileMode] = useState(false);
+
+    // ── Stockpile shipping mode (coming from stockpile page) ──
+    const isStockpileShipping = !!stockpileId;
+    const [stockpileData, setStockpileData] = useState<any>(null);
+    const [stockpileLoading, setStockpileLoading] = useState(!!stockpileId);
+
+    useEffect(() => {
+        if (!stockpileId) return;
+        setStockpileLoading(true);
+        fetch(`/api/stockpile?id=${encodeURIComponent(stockpileId)}`)
+            .then((res) => res.json())
+            .then((data) => {
+                setStockpileData(data);
+                if (data?.items) onStockpileItemsLoaded?.(data.items);
+                // Pre-fill contact info from stockpile
+                if (data?.customerEmail) {
+                    setForm((prev) => ({
+                        ...prev,
+                        email: data.customerEmail || prev.email,
+                        phone: data.phone || prev.phone,
+                        firstName: data.customerName?.split(" ")[0] || prev.firstName,
+                        lastName: data.customerName?.split(" ").slice(1).join(" ") || prev.lastName,
+                    }));
+                }
+            })
+            .catch(() => toast.error("Failed to load stockpile data"))
+            .finally(() => setStockpileLoading(false));
+    }, [stockpileId]);
 
     // ── DB pricing state ──
     const [dbPricing, setDbPricing] = useState<DbPricingResult | null>(null);
@@ -181,6 +211,118 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
         e.preventDefault();
         if (!validate()) return;
         setLoading(true);
+
+        // ── Stockpile Shipping Mode (request shipping for existing stockpile) ──
+        if (isStockpileShipping && stockpileData) {
+            try {
+                const locationDesc = lagosSelected
+                    ? `${selectedLagosArea}, Lagos (${currentLagosZone?.label})`
+                    : `${selectedInterstateCity}, ${selectedState}`;
+                const deliveryTypeLabel = lagosSelected
+                    ? "Doorstep"
+                    : deliveryType === "hub_pickup" ? "Hub Pickup" : "Doorstep";
+
+                // Save shipping info to stockpile
+                await fetch('/api/stockpile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_shipping',
+                        stockpileId: stockpileId,
+                        shippingAddress: {
+                            ...form,
+                            city: lagosSelected ? selectedLagosArea : form.city,
+                            state: selectedState,
+                            country: "Nigeria",
+                        },
+                        deliveryZone: lagosSelected
+                            ? currentLagosZone?.label
+                            : interstateData?.state,
+                        deliveryType: lagosSelected ? "doorstep" : deliveryType,
+                        deliveryFee: deliveryFee,
+                    }),
+                });
+
+                // Create a shipping-only order for payment tracking
+                const shippingOrder: Order = {
+                    id: `ORD-SHP-${Date.now().toString(36).toUpperCase()}`,
+                    customerName: `${form.firstName} ${form.lastName}`,
+                    email: form.email,
+                    phone: form.phone,
+                    items: (stockpileData.items || []).map((si: any) => ({
+                        product: {
+                            id: si.productId,
+                            name: si.productName,
+                            images: [si.productImage || ""],
+                            price: si.pricePaid,
+                        },
+                        quantity: si.quantity,
+                        variant: si.variantName ? { name: si.variantName, price: si.pricePaid } : undefined,
+                    })),
+                    subtotal: 0,
+                    shipping: deliveryFee,
+                    total: deliveryFee,
+                    status: "pending",
+                    createdAt: new Date().toISOString(),
+                    shippingAddress: {
+                        ...form,
+                        city: lagosSelected ? selectedLagosArea : form.city,
+                        state: selectedState,
+                        country: "Nigeria",
+                    },
+                    paymentMethod: paymentMethod === "whatsapp" ? "whatsapp" : "bank_transfer",
+                    paymentStatus: paymentMethod === "manual" ? "awaiting_payment" : undefined,
+                    deliveryZone: lagosSelected
+                        ? currentLagosZone?.label
+                        : interstateData?.state,
+                    deliveryType: lagosSelected ? "doorstep" : deliveryType,
+                };
+
+                const orderRes = await fetch("/api/orders", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(shippingOrder),
+                });
+                const orderData = await orderRes.json();
+
+                if (!orderRes.ok || !orderData.success) {
+                    toast.error(orderData.error || "Failed to place shipping order.");
+                    setLoading(false);
+                    return;
+                }
+
+                addOrder(shippingOrder);
+                setLoading(false);
+
+                if (paymentMethod === "whatsapp") {
+                    const itemsList = (stockpileData.items || [])
+                        .map((si: any) => `  • ${si.quantity}x ${si.productName}${si.variantName ? ` (${si.variantName})` : ''}`)
+                        .join('\n');
+                    const message = encodeURIComponent(
+                        `*Stockpile Shipping Request: ${shippingOrder.id}*\n\n` +
+                        `*Customer:* ${shippingOrder.customerName}\n` +
+                        `*Email:* ${shippingOrder.email}\n` +
+                        `*Phone:* ${shippingOrder.phone}\n\n` +
+                        `*Stockpile ID:* ${stockpileId}\n` +
+                        `*Delivery To:* ${locationDesc}\n` +
+                        `*Delivery Type:* ${deliveryTypeLabel}\n` +
+                        `*Address:* ${form.address}\n\n` +
+                        `*Stockpile Items:*\n${itemsList}\n\n` +
+                        `*Shipping Fee:* ₦${deliveryFee.toLocaleString()}\n\n` +
+                        `I would like to pay the shipping fee to have my stockpile delivered.`
+                    );
+                    window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+                } else {
+                    onComplete({ orderId: shippingOrder.id, total: shippingOrder.total, paymentMethod: "bank_transfer" });
+                }
+                return;
+            } catch (err) {
+                console.error('Stockpile shipping error:', err);
+                toast.error('Failed to request shipping. Please try again.');
+                setLoading(false);
+                return;
+            }
+        }
 
         // ── Stockpile Mode ──
         if (stockpileMode) {
@@ -419,8 +561,30 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
     //  RENDER
     // ═══════════════════════════════════════════════════════════════
 
+    if (stockpileLoading) {
+        return (
+            <div className="text-center py-12">
+                <div className="w-8 h-8 border-2 border-brand-purple/30 border-t-brand-purple rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-sm text-brand-dark/40">Loading stockpile...</p>
+            </div>
+        );
+    }
+
     return (
         <form onSubmit={handleSubmit} className="space-y-8">
+            {/* ── Stockpile shipping banner ── */}
+            {isStockpileShipping && stockpileData && (
+                <div className="bg-gradient-to-r from-brand-purple/[0.06] to-brand-lilac/[0.06] rounded-xl border border-brand-purple/15 p-5">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Truck size={16} className="text-brand-purple" />
+                        <span className="font-medium text-brand-dark text-sm">Ship Your Stockpile</span>
+                    </div>
+                    <p className="text-xs text-brand-dark/50 leading-relaxed">
+                        Enter your delivery details below and pay the shipping fee to have your {stockpileData.items?.length || 0} stockpiled item(s) delivered.
+                    </p>
+                </div>
+            )}
+
             {/* ── Step 1: Contact ── */}
             <div>
                 <SectionTitle step={1}>Contact Information</SectionTitle>
@@ -651,8 +815,8 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
                 </div>
             </div>
 
-            {/* ── Stockpile Option ── */}
-            <div className="bg-gradient-to-r from-brand-purple/[0.04] to-brand-lilac/[0.04] rounded-xl border border-brand-purple/10 p-5">
+            {/* ── Stockpile Option (hidden when shipping existing stockpile) ── */}
+            {!isStockpileShipping && <div className="bg-gradient-to-r from-brand-purple/[0.04] to-brand-lilac/[0.04] rounded-xl border border-brand-purple/10 p-5">
                 <label className="flex items-start gap-4 cursor-pointer">
                     <input
                         type="checkbox"
@@ -671,7 +835,7 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
                         </span>
                     </div>
                 </label>
-            </div>
+            </div>}
 
             {/* Security notice */}
             <div className="flex items-center gap-2 text-[10px] text-brand-dark/30">
@@ -684,9 +848,11 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
                 size="lg"
                 className="w-full"
                 loading={loading}
-                disabled={!stockpileMode && selectedState && !lagosSelected && !interstateData ? true : false}
+                disabled={!isStockpileShipping && !stockpileMode && selectedState && !lagosSelected && !interstateData ? true : false}
             >
-                {stockpileMode
+                {isStockpileShipping
+                    ? (paymentMethod === 'whatsapp' ? "Pay Shipping & Chat on WhatsApp" : "Pay Shipping Fee")
+                    : stockpileMode
                     ? (paymentMethod === 'whatsapp' ? "Pay for Items & Add to Stockpile" : "Place Stockpile Order")
                     : paymentMethod === 'whatsapp' ? "Place Order & Chat on WhatsApp" : "Place Order"}
             </Button>
