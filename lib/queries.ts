@@ -277,7 +277,10 @@ export async function createOrder(order: Order): Promise<void> {
     if (!supabase) throw new Error("Database not available");
 
     // Deduct stock atomically via RPC (prevents race conditions)
+    // Skip for stockpile orders — stock is already deducted when items are added to the stockpile
+    const skipStockDeduction = order.deliveryZone === "stockpile";
     for (const item of order.items) {
+        if (skipStockDeduction) break;
         if (item.variant) {
             // Deduct from variant stock inside the products JSONB array
             const { error: rpcError } = await supabase.rpc("deduct_variant_stock", {
@@ -348,6 +351,25 @@ export async function createOrder(order: Order): Promise<void> {
     const { error } = await supabase.from("orders").insert(insertData);
 
     if (error) throw error;
+
+    // Increment coupon usage count if applicable (best-effort, don't fail the order)
+    if (order.couponCode) {
+        try {
+            const { data: couponData } = await supabase
+                .from("coupons")
+                .select("usage_count")
+                .eq("code", order.couponCode.toUpperCase())
+                .single();
+            if (couponData) {
+                await supabase
+                    .from("coupons")
+                    .update({ usage_count: (couponData.usage_count || 0) + 1 })
+                    .eq("code", order.couponCode.toUpperCase());
+            }
+        } catch (e) {
+            console.warn("Coupon usage_count update failed:", e);
+        }
+    }
 }
 
 export async function updatePaymentInfo(

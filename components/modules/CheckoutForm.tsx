@@ -27,6 +27,7 @@ import {
     ChevronDown, Info, Package, Tag, Archive,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { toast } from "sonner";
 
 interface CheckoutFormProps {
     onComplete: (orderInfo?: { orderId: string; total: number; paymentMethod: "whatsapp" | "bank_transfer" }) => void;
@@ -203,33 +204,113 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
                     stockpile = await createRes.json();
                 }
 
-                // Add each cart item to stockpile
-                for (const item of items) {
-                    await fetch('/api/stockpile', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'add_item',
-                            stockpileId: stockpile.id,
+                // Build a stockpile order (items only, no shipping — shipping is paid later)
+                const sub = subtotal();
+                const discountAmount = sub * (discount / 100);
+                const orderTotal = Math.max(0, sub - discountAmount);
+
+                const stockpileOrder: Order = {
+                    id: `ORD-SP-${Date.now().toString(36).toUpperCase()}`,
+                    customerName: `${form.firstName} ${form.lastName}`,
+                    email: form.email,
+                    phone: form.phone,
+                    items: [...items],
+                    subtotal: sub,
+                    shipping: 0,
+                    total: orderTotal,
+                    status: "pending",
+                    createdAt: new Date().toISOString(),
+                    shippingAddress: {
+                        ...form,
+                        country: "Nigeria",
+                    },
+                    couponCode: couponCode || undefined,
+                    discountTotal: discountAmount > 0 ? discountAmount : undefined,
+                    paymentMethod: paymentMethod === "whatsapp" ? "whatsapp" : "bank_transfer",
+                    paymentStatus: paymentMethod === "manual" ? "awaiting_payment" : undefined,
+                    deliveryZone: "stockpile",
+                    deliveryType: "doorstep",
+                };
+
+                // Add all cart items to stockpile in one batch request (atomic — all or none)
+                const addItemsRes = await fetch('/api/stockpile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'add_items',
+                        stockpileId: stockpile.id,
+                        items: items.map((item) => ({
                             productId: item.product.id,
                             productName: item.product.name,
                             productImage: item.product.images?.[0] || item.variant?.image,
                             variantName: item.variant?.name,
                             quantity: item.quantity,
                             pricePaid: (item.variant?.price || item.product.price),
-                        }),
-                    });
+                            inventoryId: item.product.inventoryId,
+                            orderId: stockpileOrder.id,
+                        })),
+                    }),
+                });
+                const addItemsData = await addItemsRes.json();
+
+                if (!addItemsRes.ok || !addItemsData.success) {
+                    const errMsg = addItemsData.error || "Failed to add items to stockpile.";
+                    if (errMsg.toLowerCase().includes("insufficient stock")) {
+                        toast.error("Out of Stock", { description: errMsg, duration: 6000 });
+                    } else {
+                        toast.error(errMsg, { duration: 5000 });
+                    }
+                    setLoading(false);
+                    return;
                 }
 
+                // Stock deducted successfully via stockpile — now submit order for payment tracking
+                const orderRes = await fetch("/api/orders", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(stockpileOrder),
+                });
+                const orderData = await orderRes.json();
+
+                if (!orderRes.ok || !orderData.success) {
+                    // Order insert failed but stockpile items already added — that's OK,
+                    // items are held in stockpile and admin can see them. Show error but don't lose items.
+                    const errMsg = orderData.error || "Failed to place order. Please try again.";
+                    toast.error(errMsg, { duration: 5000 });
+                    setLoading(false);
+                    return;
+                }
+
+                addOrder(stockpileOrder);
                 clearCart();
                 removeCoupon();
                 setLoading(false);
-                // Redirect to stockpile page
-                window.location.href = `/stockpile?email=${encodeURIComponent(form.email)}&added=true`;
+
+                // Send to payment flow (same as normal orders)
+                if (paymentMethod === "whatsapp") {
+                    const message = encodeURIComponent(
+                        `*Stockpile Order: ${stockpileOrder.id}*\n\n` +
+                        `*Customer:* ${stockpileOrder.customerName}\n` +
+                        `*Email:* ${stockpileOrder.email}\n` +
+                        `*Phone:* ${stockpileOrder.phone}\n\n` +
+                        `*Stockpile ID:* ${stockpile.id}\n` +
+                        `(Shipping will be paid separately when ready)\n\n` +
+                        `*Items:*\n` +
+                        stockpileOrder.items.map(i => `  • ${i.quantity}x ${i.product.name} (${i.variant?.name || 'Default'})`).join('\n') +
+                        `\n\n*Subtotal:* ₦${sub.toLocaleString()}` +
+                        (discountAmount > 0 ? `\n*Discount:* -₦${discountAmount.toLocaleString()}` : '') +
+                        `\n*Shipping:* Paid later (stockpile)` +
+                        `\n*Total to Pay Now:* ₦${orderTotal.toLocaleString()}\n\n` +
+                        `I would like to pay for these items to add to my stockpile.`
+                    );
+                    window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+                } else {
+                    onComplete({ orderId: stockpileOrder.id, total: stockpileOrder.total, paymentMethod: "bank_transfer" });
+                }
                 return;
             } catch (err) {
                 console.error('Stockpile error:', err);
-                alert('Failed to add to stockpile. Please try again.');
+                toast.error('Failed to add to stockpile. Please try again.');
                 setLoading(false);
                 return;
             }
@@ -286,7 +367,16 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
 
             if (!res.ok || !data.success) {
                 console.error("Order failed:", data);
-                alert(data.error || "Failed to place order. Please try again.");
+                const errMsg = data.error || "Failed to place order. Please try again.";
+                // Show user-friendly stock error messages
+                if (errMsg.toLowerCase().includes("insufficient stock")) {
+                    toast.error("Out of Stock", {
+                        description: errMsg,
+                        duration: 6000,
+                    });
+                } else {
+                    toast.error(errMsg, { duration: 5000 });
+                }
                 setLoading(false);
                 return;
             }
@@ -320,7 +410,7 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
             }
         } catch (err) {
             console.error("Order submission error:", err);
-            alert("Something went wrong. Please check your connection and try again.");
+            toast.error("Something went wrong. Please check your connection and try again.");
             setLoading(false);
         }
     };
@@ -597,7 +687,7 @@ export default function CheckoutForm({ onComplete, onShippingChange }: CheckoutF
                 disabled={!stockpileMode && selectedState && !lagosSelected && !interstateData ? true : false}
             >
                 {stockpileMode
-                    ? "Add to Stockpile & Pay Later for Shipping"
+                    ? (paymentMethod === 'whatsapp' ? "Pay for Items & Add to Stockpile" : "Place Stockpile Order")
                     : paymentMethod === 'whatsapp' ? "Place Order & Chat on WhatsApp" : "Place Order"}
             </Button>
         </form>
