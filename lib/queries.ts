@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient, getServiceClient } from "@/lib/supabase";
 import type { Product, Category, Order, SiteSettings, Coupon, Profile, InventoryLog, Page, InventoryItem } from "@/types";
 
 interface DbProduct {
@@ -212,7 +212,7 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 export async function getOrders(): Promise<Order[]> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return [];
     const { data, error } = await supabase
         .from("orders")
@@ -224,7 +224,7 @@ export async function getOrders(): Promise<Order[]> {
 
 /** Fetch only orders created after a given timestamp (for notifications polling) */
 export async function getRecentOrders(since: string, limit = 10): Promise<Order[]> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return [];
     const { data, error } = await supabase
         .from("orders")
@@ -238,7 +238,7 @@ export async function getRecentOrders(since: string, limit = 10): Promise<Order[
 
 /** Fetch orders with pending payment submissions */
 export async function getPendingPaymentOrders(): Promise<Order[]> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return [];
     const { data, error } = await supabase
         .from("orders")
@@ -251,7 +251,7 @@ export async function getPendingPaymentOrders(): Promise<Order[]> {
 
 /** Get total order count (lightweight) */
 export async function getOrderCount(): Promise<number> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return 0;
     const { count, error } = await supabase
         .from("orders")
@@ -261,7 +261,7 @@ export async function getOrderCount(): Promise<number> {
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return null;
     const { data, error } = await supabase
         .from("orders")
@@ -273,7 +273,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
 }
 
 export async function createOrder(order: Order): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     // Deduct stock atomically via RPC (prevents race conditions)
@@ -1132,7 +1132,7 @@ function toStockpileItem(row: any): StockpileItem {
 
 /** Get active stockpile for a customer by email */
 export async function getStockpileByEmail(email: string): Promise<Stockpile | null> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return null;
 
     const { data, error } = await supabase
@@ -1158,7 +1158,7 @@ export async function getStockpileByEmail(email: string): Promise<Stockpile | nu
 
 /** Get stockpile by ID */
 export async function getStockpileById(id: string): Promise<Stockpile | null> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return null;
 
     const { data, error } = await supabase
@@ -1184,7 +1184,7 @@ export async function createStockpile(input: {
     customerName: string;
     phone?: string;
 }): Promise<Stockpile> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { data, error } = await supabase
@@ -1212,7 +1212,7 @@ export async function addStockpileItem(input: {
     pricePaid: number;
     orderId?: string;
 }): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("stockpile_items").insert({
@@ -1234,7 +1234,7 @@ export async function addStockpileItem(input: {
 
 /** Remove item from stockpile */
 export async function removeStockpileItem(itemId: string, stockpileId: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("stockpile_items").delete().eq("id", itemId);
@@ -1245,7 +1245,7 @@ export async function removeStockpileItem(itemId: string, stockpileId: string): 
 
 /** Recalculate total items value for a stockpile */
 async function recalcStockpileTotal(stockpileId: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return;
 
     const { data: items } = await supabase
@@ -1263,7 +1263,7 @@ export async function updateStockpileStatus(
     id: string,
     status: Stockpile["status"]
 ): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const updateData: any = { status };
@@ -1283,7 +1283,7 @@ export async function updateStockpileShipping(
         deliveryFee: number;
     }
 ): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase
@@ -1301,7 +1301,7 @@ export async function updateStockpileShipping(
 
 /** Get all stockpiles (admin) */
 export async function getAllStockpiles(): Promise<Stockpile[]> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return [];
 
     const { data, error } = await supabase
@@ -1326,7 +1326,7 @@ export async function getAllStockpiles(): Promise<Stockpile[]> {
 
 /** Expire stockpiles older than 2 weeks */
 export async function expireOldStockpiles(): Promise<number> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return 0;
 
     const { data, error } = await supabase

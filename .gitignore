@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+/__tests__
+/cypress
+/k6
+cypress.config.ts
+vitest.config.ts
+vitest.setup.ts
 
 # next.js
 /.next/

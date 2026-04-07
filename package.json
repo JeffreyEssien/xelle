@@ -5,7 +5,20 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
+    "test:e2e": "start-server-and-test dev http://localhost:3000 cy:run",
+    "k6:browse": "k6 run k6/browse.js",
+    "k6:orders": "k6 run k6/orders.js",
+    "k6:stock-race": "k6 run k6/stock-race.js",
+    "k6:admin": "k6 run k6/admin.js",
+    "k6:stockpile": "k6 run k6/stockpile-api.js",
+    "k6:all": "k6 run k6/browse.js && k6 run k6/orders.js && k6 run k6/admin.js && k6 run k6/stockpile-api.js",
+    "k6:stress": "PROFILE=stress k6 run k6/orders.js",
+    "k6:spike": "PROFILE=spike k6 run k6/orders.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
@@ -29,12 +42,18 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.11",
     "@types/react": "19.2.14",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "cypress": "^15.13.0",
+    "jsdom": "^29.0.2",
+    "start-server-and-test": "^3.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.2"
   }
 }
