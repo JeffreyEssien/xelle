@@ -29,12 +29,15 @@ export async function PUT(
         // Send status email to customer
         const order = await getOrderById(id);
         if (order) {
-            if (status === "shipped") {
-                await sendOrderShippedEmail(order);
-            } else if (status === "delivered") {
-                await sendOrderDeliveredEmail(order);
-                // Send review request email a bit later conceptually, but trigger it now
-                await sendReviewRequestEmail(order);
+            try {
+                if (status === "shipped") {
+                    await sendOrderShippedEmail(order);
+                } else if (status === "delivered") {
+                    await sendOrderDeliveredEmail(order);
+                    await sendReviewRequestEmail(order);
+                }
+            } catch (emailErr) {
+                console.warn("Status email failed (order still updated):", emailErr);
             }
         }
 
@@ -69,7 +72,11 @@ export async function PATCH(
         if (paymentStatus === "payment_confirmed") {
             const order = await getOrderById(id);
             if (order) {
-                await sendPaymentApprovedEmail(order);
+                try {
+                    await sendPaymentApprovedEmail(order);
+                } catch (emailErr) {
+                    console.warn("Payment approved email failed (payment still updated):", emailErr);
+                }
             }
         }
 

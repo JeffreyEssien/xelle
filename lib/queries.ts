@@ -87,7 +87,7 @@ function toOrder(row: DbOrder): Order {
 // ... existing getProducts ...
 
 export async function updateOrderStatus(id: string, status: Order["status"]): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase
@@ -98,7 +98,7 @@ export async function updateOrderStatus(id: string, status: Order["status"]): Pr
 }
 
 export async function updateOrderNotes(id: string, notes: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase
@@ -180,7 +180,7 @@ export async function getCategories(): Promise<Category[]> {
 }
 
 export async function createCategory(category: Omit<Category, "id">): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("categories").insert({
@@ -193,7 +193,7 @@ export async function createCategory(category: Omit<Category, "id">): Promise<vo
 }
 
 export async function updateCategory(id: string, category: Partial<Category>): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase
@@ -204,7 +204,7 @@ export async function updateCategory(id: string, category: Partial<Category>): P
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("categories").delete().eq("id", id);
@@ -276,53 +276,7 @@ export async function createOrder(order: Order): Promise<void> {
     const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
-    // Deduct stock atomically via RPC (prevents race conditions)
-    // Skip for stockpile orders — stock is already deducted when items are added to the stockpile
-    const skipStockDeduction = order.deliveryZone === "stockpile";
-    for (const item of order.items) {
-        if (skipStockDeduction) break;
-        if (item.variant) {
-            // Deduct from variant stock inside the products JSONB array
-            const { error: rpcError } = await supabase.rpc("deduct_variant_stock", {
-                p_product_id: item.product.id,
-                p_variant_name: item.variant.name,
-                p_quantity: item.quantity,
-            });
-
-            if (rpcError) {
-                throw new Error(rpcError.message || `Variant stock deduction failed for ${item.product.name} - ${item.variant.name}`);
-            }
-
-            // Log inventory change for the variant
-            const { error: logError } = await supabase.from("inventory_logs").insert({
-                product_id: item.product.id,
-                change_amount: -item.quantity,
-                reason: `order_variant_${item.variant.name}`
-            });
-            if (logError) console.warn("Inventory log failed (variant):", logError.message);
-
-        } else if (item.product.inventoryId) {
-            // Deduct from main inventory item stock (for non-variant products)
-            const { error: rpcError } = await supabase.rpc("deduct_stock", {
-                p_inventory_id: item.product.inventoryId,
-                p_quantity: item.quantity,
-            });
-
-            if (rpcError) {
-                throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name}`);
-            }
-
-            // Log the inventory change (best-effort, ignore failures)
-            const { error: logError } = await supabase.from("inventory_logs").insert({
-                product_id: item.product.id,
-                change_amount: -item.quantity,
-                reason: 'order_main'
-            });
-            if (logError) console.warn("Inventory log failed:", logError.message);
-        }
-    }
-
-    // Insert Order with proper coupon columns (no JSON hack)
+    // Insert Order FIRST (before deducting stock) so stock isn't lost on insert failure
     const insertData: any = {
         id: order.id,
         customer_name: order.customerName,
@@ -352,6 +306,55 @@ export async function createOrder(order: Order): Promise<void> {
 
     if (error) throw error;
 
+    // Deduct stock atomically via RPC AFTER order insert succeeds
+    // If stock deduction fails, remove the order to prevent overselling
+    // Skip for stockpile orders — stock is already deducted when items are added to the stockpile
+    const skipStockDeduction = order.deliveryZone === "stockpile";
+    try {
+        for (const item of order.items) {
+            if (skipStockDeduction) break;
+            if (item.variant) {
+                const { error: rpcError } = await supabase.rpc("deduct_variant_stock", {
+                    p_product_id: item.product.id,
+                    p_variant_name: item.variant.name,
+                    p_quantity: item.quantity,
+                });
+
+                if (rpcError) {
+                    throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name} - ${item.variant.name}`);
+                }
+
+                const { error: logError } = await supabase.from("inventory_logs").insert({
+                    product_id: item.product.id,
+                    change_amount: -item.quantity,
+                    reason: `order_variant_${item.variant.name}`
+                });
+                if (logError) console.warn("Inventory log failed (variant):", logError.message);
+
+            } else if (item.product.inventoryId) {
+                const { error: rpcError } = await supabase.rpc("deduct_stock", {
+                    p_inventory_id: item.product.inventoryId,
+                    p_quantity: item.quantity,
+                });
+
+                if (rpcError) {
+                    throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name}`);
+                }
+
+                const { error: logError } = await supabase.from("inventory_logs").insert({
+                    product_id: item.product.id,
+                    change_amount: -item.quantity,
+                    reason: 'order_main'
+                });
+                if (logError) console.warn("Inventory log failed:", logError.message);
+            }
+        }
+    } catch (stockError) {
+        // Stock deduction failed — delete the order so customer can retry
+        await supabase.from("orders").delete().eq("id", order.id);
+        throw stockError;
+    }
+
     // Increment coupon usage count if applicable (best-effort, don't fail the order)
     if (order.couponCode) {
         try {
@@ -376,7 +379,7 @@ export async function updatePaymentInfo(
     orderId: string,
     updates: { senderName?: string; paymentStatus?: Order["paymentStatus"] }
 ): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const dbUpdates: any = {};
@@ -403,7 +406,7 @@ export interface CreateProductInput {
 }
 
 export async function createProduct(input: CreateProductInput): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const slug = input.name
@@ -428,7 +431,7 @@ export async function createProduct(input: CreateProductInput): Promise<void> {
     if (error) throw error;
 }
 export async function updateProduct(id: string, input: CreateProductInput): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const slug = input.name
@@ -458,7 +461,7 @@ export async function updateProduct(id: string, input: CreateProductInput): Prom
 }
 
 export async function updateProductStock(id: string, newStock: number): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase
@@ -470,7 +473,7 @@ export async function updateProductStock(id: string, newStock: number): Promise<
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("products").delete().eq("id", id);
@@ -528,7 +531,7 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
 }
 
 export async function updateSiteSettings(settings: Partial<SiteSettings>): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const dbSettings: any = {};
@@ -597,7 +600,7 @@ export async function getCoupons(): Promise<Coupon[]> {
 }
 
 export async function createCoupon(coupon: { code: string; discountPercent: number; isActive: boolean }): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("coupons").insert({
@@ -609,7 +612,7 @@ export async function createCoupon(coupon: { code: string; discountPercent: numb
 }
 
 export async function deleteCoupon(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("coupons").delete().eq("id", id);
@@ -617,7 +620,7 @@ export async function deleteCoupon(id: string): Promise<void> {
 }
 
 export async function toggleCouponStatus(id: string, isActive: boolean): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("coupons").update({ is_active: isActive }).eq("id", id);
@@ -700,7 +703,7 @@ export async function getInventoryLogs(): Promise<InventoryLog[]> {
 }
 
 export async function logInventoryChange(productId: string, changeAmount: number, reason: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) return;
 
     await supabase.from("inventory_logs").insert({
@@ -741,7 +744,7 @@ export async function getInventoryItems(): Promise<InventoryItem[]> {
 }
 
 export async function updateInventoryItem(id: string, updates: Partial<InventoryItem>): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const dbUpdates: any = { updated_at: new Date().toISOString() };
@@ -761,7 +764,7 @@ export async function updateInventoryItem(id: string, updates: Partial<Inventory
 }
 
 export async function createInventoryItem(item: Omit<InventoryItem, "id" | "createdAt" | "updatedAt">): Promise<string> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { data, error } = await supabase.from("inventory_items").insert({
@@ -850,7 +853,7 @@ export async function getPageById(id: string): Promise<Page | null> {
 }
 
 export async function createPage(page: Omit<Page, "id" | "createdAt" | "updatedAt">): Promise<string> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { data, error } = await supabase.from("pages").insert({
@@ -865,7 +868,7 @@ export async function createPage(page: Omit<Page, "id" | "createdAt" | "updatedA
 }
 
 export async function updatePage(id: string, page: Partial<Page>): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const updates: any = { updated_at: new Date().toISOString() };
@@ -879,7 +882,7 @@ export async function updatePage(id: string, page: Partial<Page>): Promise<void>
 }
 
 export async function deletePage(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { error } = await supabase.from("pages").delete().eq("id", id);
@@ -991,7 +994,7 @@ export async function createDeliveryZone(zone: {
     discountLabel?: string;
     sortOrder?: number;
 }): Promise<string> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { data, error } = await supabase.from("delivery_zones").insert({
@@ -1020,7 +1023,7 @@ export async function updateDeliveryZone(id: string, updates: {
     isActive?: boolean;
     sortOrder?: number;
 }): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const db: any = {};
@@ -1039,7 +1042,7 @@ export async function updateDeliveryZone(id: string, updates: {
 }
 
 export async function deleteDeliveryZone(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
     const { error } = await supabase.from("delivery_zones").delete().eq("id", id);
     if (error) throw error;
@@ -1051,7 +1054,7 @@ export async function createDeliveryLocation(loc: {
     hubPickupFee?: number | null;
     doorstepFee?: number | null;
 }): Promise<string> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const { data, error } = await supabase.from("delivery_locations").insert({
@@ -1070,7 +1073,7 @@ export async function updateDeliveryLocation(id: string, updates: {
     doorstepFee?: number | null;
     isActive?: boolean;
 }): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
     const db: any = {};
@@ -1084,7 +1087,7 @@ export async function updateDeliveryLocation(id: string, updates: {
 }
 
 export async function deleteDeliveryLocation(id: string): Promise<void> {
-    const supabase = getSupabaseClient();
+    const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
     const { error } = await supabase.from("delivery_locations").delete().eq("id", id);
     if (error) throw error;

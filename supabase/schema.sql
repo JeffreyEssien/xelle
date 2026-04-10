@@ -219,7 +219,13 @@ ALTER TABLE delivery_locations ENABLE ROW LEVEL SECURITY;
 
 -- Public read
 CREATE POLICY "Public read categories" ON categories FOR SELECT USING (true);
+CREATE POLICY "Admin manage categories" ON categories FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin update categories" ON categories FOR UPDATE USING (true);
+CREATE POLICY "Admin delete categories" ON categories FOR DELETE USING (true);
 CREATE POLICY "Public read products" ON products FOR SELECT USING (true);
+CREATE POLICY "Admin manage products" ON products FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin update products" ON products FOR UPDATE USING (true);
+CREATE POLICY "Admin delete products" ON products FOR DELETE USING (true);
 CREATE POLICY "Public read site_settings" ON site_settings FOR SELECT USING (true);
 CREATE POLICY "Public read published pages" ON pages FOR SELECT USING (is_published = true);
 CREATE POLICY "Public read active coupons" ON coupons FOR SELECT USING (is_active = true);

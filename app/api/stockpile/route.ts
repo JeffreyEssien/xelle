@@ -10,7 +10,7 @@ import {
     getAllStockpiles,
     expireOldStockpiles,
 } from "@/lib/queries";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getServiceClient } from "@/lib/supabase";
 import {
     sendStockpileCreatedEmail,
     sendStockpileItemAddedEmail,
@@ -18,6 +18,45 @@ import {
     sendStockpileExpiredEmail,
 } from "@/lib/email";
 import { enqueue } from "@/lib/orderQueue";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/** Restore stock that was deducted, used when a subsequent insert fails */
+async function restoreStock(
+    supabase: SupabaseClient,
+    item: { productId: string; variantName?: string; inventoryId?: string; quantity: number }
+) {
+    if (item.variantName) {
+        const { data: prod } = await supabase
+            .from("products")
+            .select("variants")
+            .eq("id", item.productId)
+            .single();
+        if (prod?.variants) {
+            const variants = prod.variants as { name: string; stock: number }[];
+            const idx = variants.findIndex((v) => v.name === item.variantName);
+            if (idx >= 0) {
+                variants[idx].stock = (variants[idx].stock || 0) + item.quantity;
+                const totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+                await supabase
+                    .from("products")
+                    .update({ variants, stock: totalStock })
+                    .eq("id", item.productId);
+            }
+        }
+    } else if (item.inventoryId) {
+        const { data: inv } = await supabase
+            .from("inventory_items")
+            .select("stock")
+            .eq("id", item.inventoryId)
+            .single();
+        if (inv) {
+            await supabase
+                .from("inventory_items")
+                .update({ stock: inv.stock + item.quantity })
+                .eq("id", item.inventoryId);
+        }
+    }
+}
 
 // GET: Fetch stockpile by email or ID, or all (admin)
 export async function GET(request: Request) {
@@ -84,10 +123,11 @@ export async function POST(request: Request) {
             }
             case "add_item": {
                 await enqueue(async () => {
-                    const supabase = getSupabaseClient();
+                    const supabase = getServiceClient();
                     if (!supabase) throw new Error("Database not available");
 
                     // Deduct stock when adding to stockpile (same as order placement)
+                    let stockDeducted = false;
                     if (body.variantName) {
                         const { error: rpcError } = await supabase.rpc("deduct_variant_stock", {
                             p_product_id: body.productId,
@@ -97,29 +137,36 @@ export async function POST(request: Request) {
                         if (rpcError) {
                             throw new Error(rpcError.message || `Insufficient stock for ${body.productName} - ${body.variantName}`);
                         }
-                    } else {
-                        // Try to deduct from main inventory if product has inventoryId
-                        if (body.inventoryId) {
-                            const { error: rpcError } = await supabase.rpc("deduct_stock", {
-                                p_inventory_id: body.inventoryId,
-                                p_quantity: body.quantity,
-                            });
-                            if (rpcError) {
-                                throw new Error(rpcError.message || `Insufficient stock for ${body.productName}`);
-                            }
+                        stockDeducted = true;
+                    } else if (body.inventoryId) {
+                        const { error: rpcError } = await supabase.rpc("deduct_stock", {
+                            p_inventory_id: body.inventoryId,
+                            p_quantity: body.quantity,
+                        });
+                        if (rpcError) {
+                            throw new Error(rpcError.message || `Insufficient stock for ${body.productName}`);
                         }
+                        stockDeducted = true;
                     }
 
-                    await addStockpileItem({
-                        stockpileId: body.stockpileId,
-                        productId: body.productId,
-                        productName: body.productName,
-                        productImage: body.productImage,
-                        variantName: body.variantName,
-                        quantity: body.quantity,
-                        pricePaid: body.pricePaid,
-                        orderId: body.orderId,
-                    });
+                    try {
+                        await addStockpileItem({
+                            stockpileId: body.stockpileId,
+                            productId: body.productId,
+                            productName: body.productName,
+                            productImage: body.productImage,
+                            variantName: body.variantName,
+                            quantity: body.quantity,
+                            pricePaid: body.pricePaid,
+                            orderId: body.orderId,
+                        });
+                    } catch (insertError) {
+                        // Restore stock if item insert fails
+                        if (stockDeducted) {
+                            await restoreStock(supabase, body);
+                        }
+                        throw insertError;
+                    }
                 });
                 // Send item added email outside the queue (don't hold a queue slot for email)
                 const updatedStockpile = await getStockpileById(body.stockpileId);
@@ -147,54 +194,67 @@ export async function POST(request: Request) {
                 }
 
                 await enqueue(async () => {
-                    // Batch add: all items in one request, atomic — if any fails, none are added
-                    const supabaseBatch = getSupabaseClient();
+                    const supabaseBatch = getServiceClient();
                     if (!supabaseBatch) throw new Error("Database not available");
 
-                    // Deduct stock for all items first
-                    for (const item of batchItems) {
-                        if (item.variantName) {
-                            const { error: rpcError } = await supabaseBatch.rpc("deduct_variant_stock", {
-                                p_product_id: item.productId,
-                                p_variant_name: item.variantName,
-                                p_quantity: item.quantity,
-                            });
-                            if (rpcError) {
-                                throw new Error(rpcError.message || `Insufficient stock for ${item.productName} - ${item.variantName}`);
+                    // Track which items had stock deducted so we can restore on failure
+                    const deductedItems: typeof batchItems = [];
+
+                    try {
+                        // Deduct stock for all items first
+                        for (const item of batchItems) {
+                            if (item.variantName) {
+                                const { error: rpcError } = await supabaseBatch.rpc("deduct_variant_stock", {
+                                    p_product_id: item.productId,
+                                    p_variant_name: item.variantName,
+                                    p_quantity: item.quantity,
+                                });
+                                if (rpcError) {
+                                    throw new Error(rpcError.message || `Insufficient stock for ${item.productName} - ${item.variantName}`);
+                                }
+                            } else if (item.inventoryId) {
+                                const { error: rpcError } = await supabaseBatch.rpc("deduct_stock", {
+                                    p_inventory_id: item.inventoryId,
+                                    p_quantity: item.quantity,
+                                });
+                                if (rpcError) {
+                                    throw new Error(rpcError.message || `Insufficient stock for ${item.productName}`);
+                                }
                             }
-                        } else if (item.inventoryId) {
-                            const { error: rpcError } = await supabaseBatch.rpc("deduct_stock", {
-                                p_inventory_id: item.inventoryId,
-                                p_quantity: item.quantity,
-                            });
-                            if (rpcError) {
-                                throw new Error(rpcError.message || `Insufficient stock for ${item.productName}`);
-                            }
+                            deductedItems.push(item);
                         }
+
+                        // Insert all stockpile items in one DB call
+                        const rows = batchItems.map((item) => ({
+                            stockpile_id: body.stockpileId,
+                            product_id: item.productId,
+                            product_name: item.productName,
+                            product_image: item.productImage || null,
+                            variant_name: item.variantName || null,
+                            quantity: item.quantity,
+                            price_paid: item.pricePaid,
+                            order_id: item.orderId || null,
+                        }));
+
+                        const { error: insertError } = await supabaseBatch.from("stockpile_items").insert(rows);
+                        if (insertError) throw insertError;
+
+                        // Recalc total
+                        const { data: allItems } = await supabaseBatch
+                            .from("stockpile_items")
+                            .select("price_paid, quantity")
+                            .eq("stockpile_id", body.stockpileId);
+                        const total = (allItems || []).reduce((sum: number, i: any) => sum + Number(i.price_paid) * i.quantity, 0);
+                        await supabaseBatch.from("stockpiles").update({ total_items_value: total }).eq("id", body.stockpileId);
+                    } catch (err) {
+                        // Restore stock for all items that were successfully deducted
+                        for (const item of deductedItems) {
+                            await restoreStock(supabaseBatch, item).catch((e) =>
+                                console.error("Failed to restore stock for", item.productName, e)
+                            );
+                        }
+                        throw err;
                     }
-
-                    // Insert all stockpile items in one DB call
-                    const rows = batchItems.map((item) => ({
-                        stockpile_id: body.stockpileId,
-                        product_id: item.productId,
-                        product_name: item.productName,
-                        product_image: item.productImage || null,
-                        variant_name: item.variantName || null,
-                        quantity: item.quantity,
-                        price_paid: item.pricePaid,
-                        order_id: item.orderId || null,
-                    }));
-
-                    const { error: insertError } = await supabaseBatch.from("stockpile_items").insert(rows);
-                    if (insertError) throw insertError;
-
-                    // Recalc total
-                    const { data: allItems } = await supabaseBatch
-                        .from("stockpile_items")
-                        .select("price_paid, quantity")
-                        .eq("stockpile_id", body.stockpileId);
-                    const total = (allItems || []).reduce((sum: number, i: any) => sum + Number(i.price_paid) * i.quantity, 0);
-                    await supabaseBatch.from("stockpiles").update({ total_items_value: total }).eq("id", body.stockpileId);
                 });
 
                 // Send email outside the queue
@@ -213,7 +273,7 @@ export async function POST(request: Request) {
             }
             case "remove_item": {
                 // Restore stock when removing from stockpile
-                const supabaseForRemove = getSupabaseClient();
+                const supabaseForRemove = getServiceClient();
                 if (supabaseForRemove && body.productId && body.quantity) {
                     try {
                         if (body.variantName) {
