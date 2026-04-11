@@ -1,21 +1,35 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { updateOrderStatus, updatePaymentInfo, getOrderById } from "@/lib/queries";
+import { updateOrderStatus, updatePaymentInfo, updateOrderNotes, getOrderById } from "@/lib/queries";
 import { sendOrderShippedEmail, sendOrderDeliveredEmail, sendPaymentApprovedEmail, sendReviewRequestEmail } from "@/lib/email";
 import type { Order } from "@/types";
+
+const VALID_STATUSES = ["pending", "shipped", "delivered"] as const;
+
+async function isAdmin(): Promise<boolean> {
+    const cookieStore = await cookies();
+    const session = cookieStore.get("admin_session")?.value;
+    const secret = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
+    return session === secret;
+}
 
 export async function PUT(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        if (!await isAdmin()) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { id } = await params;
         const body = await request.json();
         const { status } = body;
 
-        if (!status) {
+        if (!status || !VALID_STATUSES.includes(status)) {
             return NextResponse.json(
-                { error: "Status is required" },
+                { error: "Valid status is required (pending, shipped, delivered)" },
                 { status: 400 }
             );
         }
@@ -58,12 +72,33 @@ export async function PATCH(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { senderName, paymentStatus } = body;
+        const { senderName, paymentStatus, notes } = body;
 
-        await updatePaymentInfo(id, {
-            senderName: senderName || undefined,
-            paymentStatus: paymentStatus || undefined,
-        });
+        // Validate paymentStatus if provided
+        const validPaymentStatuses = ["awaiting_payment", "payment_submitted", "payment_confirmed"];
+        if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+            return NextResponse.json({ error: "Invalid payment status" }, { status: 400 });
+        }
+
+        // payment_confirmed and notes are admin-only
+        if (paymentStatus === "payment_confirmed" || notes !== undefined) {
+            if (!await isAdmin()) {
+                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            }
+        }
+
+        // Handle notes update
+        if (notes !== undefined) {
+            await updateOrderNotes(id, notes);
+        }
+
+        // Handle payment info update
+        if (senderName || paymentStatus) {
+            await updatePaymentInfo(id, {
+                senderName: senderName || undefined,
+                paymentStatus: paymentStatus || undefined,
+            });
+        }
 
         revalidatePath("/admin");
         revalidatePath("/admin/orders");

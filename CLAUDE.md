@@ -87,3 +87,53 @@ Simple password-based: `ADMIN_PASSWORD` env var, sets `admin_session` cookie. Mi
 - Brand classes: `text-brand-dark`, `text-brand-purple`, `bg-brand-lilac`
 - `useSearchParams()` must be wrapped in `<Suspense>` (Next.js requirement)
 - Order IDs: `ORD-{timestamp}`, Stockpile orders: `ORD-SP-{timestamp}`, Shipping orders: `ORD-SHP-{timestamp}`
+
+
+RULES
+1. give a very brief summary at the end of each response
+2. use as little tokens as possible
+3. always make sure to make every feature functional and working
+4. always check this file and update it when needed
+5. speak like a caveman
+
+ #: 1
+  Issue: Many admin client components (AddProductForm, CouponForm, CouponList,
+    InventoryContent, SiteSettingsForm, CategoryForm) call getServiceClient() from
+    browser — falls back to anon key
+  Severity: HIGH
+  Why not fixed: Each needs its own API route — big refactor. Works due to permissive
+
+    RLS policies.
+  ────────────────────────────────────────
+  #: 2
+  Issue: RLS policies use USING (true) for admin tables — anyone with the public anon
+
+    key can create/delete products, coupons, etc. directly via Supabase
+  Severity: HIGH
+  Why not fixed: Requires rewriting all RLS policies to restrict writes to
+    service_role only
+  ────────────────────────────────────────
+  #: 3
+  Issue: No rate limiting on admin login (brute force)
+  Severity: MEDIUM
+  Why not fixed: Needs external solution (Vercel rate limiting, or middleware
+  counter)
+  ────────────────────────────────────────
+  #: 4
+  Issue: Non-atomic coupon usage increment (lost updates under concurrency)
+  Severity: LOW
+  Why not fixed: Needs Supabase RPC function for atomic increment
+  ────────────────────────────────────────
+  #: 5
+  Issue: Stockpile total recalculation race condition under concurrent adds
+  Severity: LOW
+  Why not fixed: Needs DB-level trigger or row-level locking
+  ────────────────────────────────────────
+  #: 6
+  Issue: Default ADMIN_SESSION_SECRET fallback is hardcoded
+  Severity: LOW
+  Why not fixed: Should throw in production if not set
+
+  Items 1-2 are the biggest remaining concerns. The recommended next step is creating
+   API routes for all admin write operations and tightening RLS policies to block
+  anon writes.

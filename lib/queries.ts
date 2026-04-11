@@ -650,6 +650,25 @@ export async function validateCoupon(code: string): Promise<Coupon | null> {
     };
 }
 
+export async function incrementCouponUsage(code: string): Promise<void> {
+    const supabase = getServiceClient();
+    if (!supabase) return;
+
+    const upperCode = code.toUpperCase();
+    const { data } = await supabase
+        .from("coupons")
+        .select("usage_count")
+        .eq("code", upperCode)
+        .single();
+
+    if (data) {
+        await supabase
+            .from("coupons")
+            .update({ usage_count: (data.usage_count || 0) + 1 })
+            .eq("code", upperCode);
+    }
+}
+
 /* ── Customers ── */
 
 export async function getCustomers(): Promise<Profile[]> {

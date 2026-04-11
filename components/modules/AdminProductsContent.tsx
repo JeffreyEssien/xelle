@@ -8,7 +8,6 @@ import { LOW_STOCK_THRESHOLD } from "@/lib/constants";
 import { cn } from "@/lib/cn";
 import Button from "@/components/ui/Button";
 import AddProductForm from "@/components/modules/AddProductForm";
-import { deleteProduct } from "@/lib/queries";
 import { revalidateShop } from "@/app/actions";
 
 interface AdminProductsContentProps {
@@ -41,7 +40,12 @@ export default function AdminProductsContent({ products }: AdminProductsContentP
     const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
             try {
-                await deleteProduct(id);
+                const res = await fetch("/api/admin/products", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id }),
+                });
+                if (!res.ok) throw new Error("Failed");
                 await revalidateShop();
                 alert("Product deleted successfully");
                 window.location.reload();

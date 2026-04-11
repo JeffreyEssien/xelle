@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/formatCurrency";
 import { useCartStore } from "@/lib/cartStore";
 import Button from "@/components/ui/Button";
 import StockIndicator from "@/components/ui/StockIndicator";
+import DOMPurify from "isomorphic-dompurify";
 import { ShoppingBag, Truck, Shield, RotateCcw, Check, ChevronDown, ChevronRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { WHATSAPP_NUMBER } from "@/lib/constants";
@@ -93,7 +94,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                             exit={{ opacity: 0, y: -8 }}
                             transition={{ duration: 0.25 }}
                             className="product-description text-brand-dark/55 leading-relaxed text-[15px]"
-                            dangerouslySetInnerHTML={{ __html: product.description || "" }}
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || "") }}
                         />
                     ) : (
                         <motion.div

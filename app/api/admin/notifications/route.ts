@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getRecentOrders, getPendingPaymentOrders, getOrderCount } from "@/lib/queries";
+
+async function isAdmin(): Promise<boolean> {
+    const cookieStore = await cookies();
+    const session = cookieStore.get("admin_session")?.value;
+    const secret = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
+    return session === secret;
+}
 
 // This endpoint returns recent orders for the notification polling system.
 // Uses DB-level filtering for efficiency instead of fetching all orders.
 export async function GET(request: Request) {
     try {
+        if (!await isAdmin()) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
         const { searchParams } = new URL(request.url);
         const since = searchParams.get("since"); // ISO timestamp
 

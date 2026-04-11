@@ -210,14 +210,14 @@ export default function AdminOrdersContent({ initialOrders }: AdminOrdersContent
                 </TabButton>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <div className={selected ? "xl:col-span-2" : "xl:col-span-3"}>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6" style={{ height: "calc(100vh - 220px)" }}>
+                <div className={`${selected ? "xl:col-span-2" : "xl:col-span-3"} overflow-y-auto`}>
                     {/* Desktop table */}
                     <div className="hidden md:block">
                         <div className="bg-white rounded-lg border border-brand-lilac/20 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                    <thead>
+                                    <thead className="sticky top-0 z-10">
                                         <tr className="border-b border-brand-lilac/20 bg-brand-lilac/5">
                                             <th className="text-left px-4 py-3 font-medium text-brand-dark/60">Order</th>
                                             <th className="text-left px-4 py-3 font-medium text-brand-dark/60">Customer</th>
@@ -283,7 +283,7 @@ export default function AdminOrdersContent({ initialOrders }: AdminOrdersContent
                     </div>
                 </div>
                 {selected && (
-                    <div className="xl:col-span-1">
+                    <div className="xl:col-span-1 overflow-y-auto">
                         <OrderDetailPanel
                             order={selected}
                             onClose={() => setSelected(null)}

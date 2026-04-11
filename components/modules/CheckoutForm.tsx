@@ -291,6 +291,9 @@ export default function CheckoutForm({ onComplete, onShippingChange, stockpileId
                     return;
                 }
 
+                // Use the server-generated order ID
+                shippingOrder.id = orderData.orderId;
+
                 addOrder(shippingOrder);
                 setLoading(false);
 
@@ -423,6 +426,9 @@ export default function CheckoutForm({ onComplete, onShippingChange, stockpileId
                     return;
                 }
 
+                // Use the server-generated order ID
+                stockpileOrder.id = orderData.orderId;
+
                 addOrder(stockpileOrder);
                 clearCart();
                 removeCoupon();
@@ -522,6 +528,9 @@ export default function CheckoutForm({ onComplete, onShippingChange, stockpileId
                 setLoading(false);
                 return;
             }
+
+            // Use the server-generated order ID
+            order.id = data.orderId;
 
             addOrder(order);
             clearCart();

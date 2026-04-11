@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { X, ShoppingBag, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import DOMPurify from "isomorphic-dompurify";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
 import { useCartStore } from "@/lib/cartStore";
@@ -131,7 +132,7 @@ export default function QuickViewModal({ product, isOpen, onClose }: QuickViewMo
                                 {product.description && (
                                     <div
                                         className="text-sm text-brand-dark/50 leading-relaxed mb-5 line-clamp-3"
-                                        dangerouslySetInnerHTML={{ __html: product.description }}
+                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || "") }}
                                     />
                                 )}
 
