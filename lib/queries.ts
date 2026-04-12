@@ -142,7 +142,10 @@ export async function getNewProducts(): Promise<Product[]> {
         .select("*")
         .eq("is_new", true)
         .limit(4);
-    if (error) throw error;
+    if (error) {
+        console.error("getNewProducts error:", error.message);
+        return [];
+    }
     return (data as DbProduct[]).map(toProduct);
 }
 
@@ -175,7 +178,10 @@ export async function getCategories(): Promise<Category[]> {
         .from("categories")
         .select("*")
         .order("name");
-    if (error) throw error;
+    if (error) {
+        console.error("getCategories error:", error.message);
+        return [];
+    }
     return data as Category[];
 }
 

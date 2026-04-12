@@ -18,7 +18,15 @@
     "k6:stockpile": "k6 run k6/stockpile-api.js",
     "k6:all": "k6 run k6/browse.js && k6 run k6/orders.js && k6 run k6/admin.js && k6 run k6/stockpile-api.js",
     "k6:stress": "PROFILE=stress k6 run k6/orders.js",
-    "k6:spike": "PROFILE=spike k6 run k6/orders.js"
+    "k6:spike": "PROFILE=spike k6 run k6/orders.js",
+    "test:prod": "npx playwright test",
+    "test:prod:ui": "npx playwright test --ui",
+    "test:prod:headed": "npx playwright test --headed",
+    "test:prod:checkout": "npx playwright test checkout",
+    "test:prod:search": "npx playwright test search",
+    "test:prod:inventory": "npx playwright test inventory",
+    "test:prod:resilience": "npx playwright test resilience",
+    "test:prod:concurrency": "npx playwright test concurrency"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
@@ -42,6 +50,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.0",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
