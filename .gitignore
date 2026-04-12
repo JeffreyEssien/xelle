@@ -15,9 +15,13 @@
 /__tests__
 /cypress
 /k6
+/tests
 cypress.config.ts
 vitest.config.ts
 vitest.setup.ts
+playwright.config.ts
+/playwright-report
+/test-results
 
 # next.js
 /.next/
