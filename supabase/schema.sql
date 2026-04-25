@@ -67,6 +67,10 @@ CREATE TABLE IF NOT EXISTS site_settings (
   hero_image TEXT,
   hero_cta_text TEXT,
   hero_cta_link TEXT,
+  hero_eyebrow TEXT,
+  hero_cta_secondary_text TEXT,
+  hero_cta_secondary_link TEXT,
+  hero_trust_badges TEXT[] DEFAULT '{}',
   -- Favicon & content
   favicon_url TEXT,
   our_story_heading TEXT,
@@ -322,6 +326,27 @@ CREATE INDEX IF NOT EXISTS idx_stockpile_items_stockpile ON stockpile_items(stoc
 CREATE INDEX IF NOT EXISTS idx_stockpiles_email ON stockpiles(customer_email);
 CREATE INDEX IF NOT EXISTS idx_stockpiles_status ON stockpiles(status);
 
+-- 14. Reviews (verified purchase only)
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE NOT NULL,
+  order_id TEXT REFERENCES orders(id) ON DELETE CASCADE NOT NULL,
+  customer_name TEXT NOT NULL,
+  customer_email TEXT NOT NULL,
+  rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  is_approved BOOLEAN DEFAULT FALSE,
+  is_visible BOOLEAN DEFAULT FALSE,
+  display_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(product_id, order_id, customer_email) -- one review per product per order per customer
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_visible ON reviews(product_id, is_visible, display_order);
+
 -- RLS
 ALTER TABLE stockpiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stockpile_items ENABLE ROW LEVEL SECURITY;
@@ -335,6 +360,38 @@ CREATE POLICY "Public insert stockpile_items" ON stockpile_items FOR INSERT WITH
 CREATE POLICY "Public read stockpile_items" ON stockpile_items FOR SELECT USING (true);
 CREATE POLICY "Service update stockpile_items" ON stockpile_items FOR UPDATE USING (true);
 CREATE POLICY "Admin delete stockpile_items" ON stockpile_items FOR DELETE USING (true);
+
+-- 15. Media (Cloudinary gallery metadata)
+CREATE TABLE IF NOT EXISTS media (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  url TEXT NOT NULL,
+  public_id TEXT UNIQUE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('image', 'video')),
+  name TEXT,
+  folder TEXT DEFAULT 'xelle',
+  width INT,
+  height INT,
+  bytes INT,
+  format TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_media_type ON media(type);
+CREATE INDEX IF NOT EXISTS idx_media_created ON media(created_at DESC);
+
+ALTER TABLE media ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read media" ON media FOR SELECT USING (true);
+CREATE POLICY "Admin manage media" ON media FOR ALL USING (true);
+
+-- Add hero display config + featured slides to site_settings
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS hero_display_config JSONB DEFAULT '{"mode": "single", "mediaIds": [], "slideshowInterval": 5, "useFeaturedSlides": false}';
+ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS featured_slides JSONB DEFAULT '[]';
+
+-- Reviews RLS
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read visible reviews" ON reviews FOR SELECT USING (is_visible = true);
+CREATE POLICY "Public insert reviews" ON reviews FOR INSERT WITH CHECK (true);
+CREATE POLICY "Admin manage reviews" ON reviews FOR ALL USING (true);
 
 -- Atomic variant stock deduction
 CREATE OR REPLACE FUNCTION deduct_variant_stock(

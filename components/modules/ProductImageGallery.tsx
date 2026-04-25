@@ -1,9 +1,11 @@
 "use client";
 
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import Image from "next/image";
 import { useState, useCallback } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { isVideoUrl } from "@/lib/media";
+import MediaRenderer from "@/components/ui/MediaRenderer";
 
 interface ProductImageGalleryProps {
     images: string[];
@@ -48,10 +50,10 @@ export default function ProductImageGallery({ images, name }: ProductImageGaller
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="space-y-4"
         >
-            {/* Main Image */}
+            {/* Main Image / Video */}
             <div
-                className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-50 group cursor-zoom-in"
-                onClick={() => setZoomed(true)}
+                className={`relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-50 group ${isVideoUrl(images[activeIndex]) ? "cursor-default" : "cursor-zoom-in"}`}
+                onClick={() => !isVideoUrl(images[activeIndex]) && setZoomed(true)}
             >
                 <AnimatePresence custom={direction} mode="wait">
                     <motion.div
@@ -62,19 +64,20 @@ export default function ProductImageGallery({ images, name }: ProductImageGaller
                         animate="center"
                         exit="exit"
                         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                        drag="x"
+                        drag={isVideoUrl(images[activeIndex]) ? false : "x"}
                         dragConstraints={{ left: 0, right: 0 }}
                         dragElastic={0.4}
                         onDragEnd={handleDragEnd}
                         className="absolute inset-0"
                     >
-                        <Image
+                        <MediaRenderer
                             src={images[activeIndex]}
-                            alt={`${name} — image ${activeIndex + 1}`}
+                            alt={`${name} — media ${activeIndex + 1}`}
                             fill
                             priority
                             sizes="(max-width: 1024px) 100vw, 50vw"
                             className="object-cover"
+                            showControls={isVideoUrl(images[activeIndex])}
                         />
                     </motion.div>
                 </AnimatePresence>
@@ -130,7 +133,7 @@ export default function ProductImageGallery({ images, name }: ProductImageGaller
                                     : "opacity-40 hover:opacity-70"
                                 }`}
                         >
-                            <Image src={img} alt={`${name} thumbnail ${i + 1}`} fill sizes="80px" className="object-cover" />
+                            <MediaRenderer src={img} alt={`${name} thumbnail ${i + 1}`} fill sizes="80px" className="object-cover" />
                         </button>
                     ))}
                 </div>
@@ -162,13 +165,15 @@ export default function ProductImageGallery({ images, name }: ProductImageGaller
                             exit={{ scale: 0.92 }}
                             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                             className="relative w-full max-w-3xl aspect-[3/4]"
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <Image
+                            <MediaRenderer
                                 src={images[activeIndex]}
                                 alt={name}
                                 fill
                                 sizes="100vw"
                                 className="object-contain"
+                                showControls={isVideoUrl(images[activeIndex])}
                             />
                         </motion.div>
 

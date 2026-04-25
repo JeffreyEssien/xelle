@@ -41,13 +41,13 @@ lib/
   supabase.ts         # Supabase client init
 types/index.ts        # All TypeScript types (Product, Order, CartItem, Stockpile, etc.)
 supabase/
-  schema.sql          # Full DB schema (13 tables)
+  schema.sql          # Full DB schema (15 tables)
   seed.sql            # Sample data
 proxy.ts              # Admin auth middleware (cookie-based)
 ```
 
 ## Database Tables
-products, categories, orders, site_settings, inventory_items, inventory_logs, coupons, pages, profiles, delivery_zones, delivery_locations, stockpiles, stockpile_items
+products, categories, orders, site_settings, inventory_items, inventory_logs, coupons, pages, profiles, delivery_zones, delivery_locations, stockpiles, stockpile_items, reviews, media
 
 ## Key Features
 - **Stockpile System**: Pay now, ship later. 14-day expiry. Items accumulated across orders, single shipping fee when ready.
@@ -55,6 +55,7 @@ products, categories, orders, site_settings, inventory_items, inventory_logs, co
 - **Order Queue**: In-memory queue prevents DB overload (max 3 concurrent order writes).
 - **Payment Flow**: WhatsApp chat or bank transfer with admin confirmation cycle.
 - **Inventory**: SKU-based with atomic stock deduction via Supabase RPC (`deduct_stock`, `deduct_variant_stock`).
+- **Review System**: Verified-purchase-only reviews. Admin approves, hides, ranks display order. Stars + average rating on product pages. Email with direct review links sent after delivery.
 - **CMS Pages**: Dynamic pages at `/[slug]` with TipTap rich text editor.
 - **Analytics Dashboard**: Revenue, inventory, customer, marketing metrics (client-side calculated).
 
@@ -66,6 +67,10 @@ products, categories, orders, site_settings, inventory_items, inventory_logs, co
 | PATCH | /api/orders/[id] | Update payment info |
 | POST | /api/orders/track | Track order (public) |
 | GET/POST | /api/stockpile | CRUD stockpiles (actions: create, add_items, remove_item, update_status, update_shipping) |
+| GET | /api/reviews | Get visible reviews + rating for product |
+| POST | /api/reviews | Submit review (verified purchase) |
+| GET | /api/admin/reviews | All reviews (admin) |
+| POST | /api/admin/reviews | Approve/hide/delete/reorder reviews |
 | GET | /api/search | Product search |
 | POST | /api/admin/login | Admin auth |
 | GET | /api/admin/notifications | Poll new orders/payments |

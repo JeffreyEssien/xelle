@@ -3,22 +3,60 @@
 import { useState, useEffect } from "react";
 import { getSiteSettings, updateSiteSettings } from "@/lib/queries";
 import { uploadProductImage } from "@/lib/uploadImage";
-import type { SiteSettings } from "@/types";
+import type { SiteSettings, HeroDisplayConfig, Media } from "@/types";
 import Button from "@/components/ui/Button";
+import MediaPicker from "@/components/modules/MediaPicker";
 import { toast } from "sonner";
+import Image from "next/image";
 import {
     Megaphone, Globe, Phone, MessageCircle, MapPin, Type,
-    Instagram, Twitter, Music2, Facebook
+    Instagram, Twitter, Music2, Facebook, Monitor, Image as ImageIcon,
+    Film, Play, Trash2, Eye, EyeOff, X, Plus, ArrowRight,
+    ChevronLeft, ChevronRight
 } from "lucide-react";
+
+const DEFAULT_DISPLAY_CONFIG: HeroDisplayConfig = {
+    mode: "single",
+    mediaIds: [],
+    slideshowInterval: 5,
+    useFeaturedSlides: false,
+};
 
 export default function SiteSettingsForm() {
     const [settings, setSettings] = useState<Partial<SiteSettings>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+    const [mediaPickerFilter, setMediaPickerFilter] = useState<"image" | "video" | undefined>();
+    const [resolvedMedia, setResolvedMedia] = useState<Media[]>([]);
+    const [showPreview, setShowPreview] = useState(false);
+    const [badgeInput, setBadgeInput] = useState("");
 
     useEffect(() => {
         loadSettings();
     }, []);
+
+    const displayConfig = settings.heroDisplayConfig || DEFAULT_DISPLAY_CONFIG;
+
+    // Resolve media IDs to URLs for preview
+    useEffect(() => {
+        if (displayConfig.mediaIds.length === 0) {
+            setResolvedMedia([]);
+            return;
+        }
+        const fetchMedia = async () => {
+            try {
+                const res = await fetch("/api/media");
+                const data = await res.json();
+                const allMedia: Media[] = data.media || [];
+                const resolved = displayConfig.mediaIds
+                    .map((id: string) => allMedia.find((m: Media) => m.id === id))
+                    .filter(Boolean) as Media[];
+                setResolvedMedia(resolved);
+            } catch { /* silent */ }
+        };
+        fetchMedia();
+    }, [displayConfig.mediaIds]);
 
     const loadSettings = async () => {
         try {
@@ -41,6 +79,13 @@ export default function SiteSettingsForm() {
         }
     };
 
+    const updateDisplayConfig = (updates: Partial<HeroDisplayConfig>) => {
+        setSettings((prev) => ({
+            ...prev,
+            heroDisplayConfig: { ...displayConfig, ...updates },
+        }));
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
@@ -54,7 +99,7 @@ export default function SiteSettingsForm() {
         }
     };
 
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "logoUrl" | "heroImage") => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: "logoUrl" | "heroImage" | "faviconUrl") => {
         const file = e.target.files?.[0];
         if (!file) return;
         const toastId = toast.loading("Uploading image...");
@@ -66,6 +111,49 @@ export default function SiteSettingsForm() {
             console.error(error);
             toast.error("Failed to upload image", { id: toastId });
         }
+    };
+
+    const openMediaPicker = (filter?: "image" | "video") => {
+        setMediaPickerFilter(filter);
+        setMediaPickerOpen(true);
+    };
+
+    const handleMediaSelect = (selected: Media[]) => {
+        const ids = selected.map((m) => m.id);
+        if (displayConfig.mode === "single" || displayConfig.mode === "video") {
+            updateDisplayConfig({ mediaIds: ids.slice(0, 1) });
+        } else {
+            const existing = displayConfig.mediaIds || [];
+            const merged = [...existing, ...ids.filter((id) => !existing.includes(id))];
+            updateDisplayConfig({ mediaIds: merged });
+        }
+        setResolvedMedia((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            return [...prev, ...selected.filter((m) => !existingIds.has(m.id))];
+        });
+    };
+
+    const removeMediaId = (id: string) => {
+        const updated = (displayConfig.mediaIds || []).filter((mid: string) => mid !== id);
+        updateDisplayConfig({ mediaIds: updated });
+        setResolvedMedia((prev) => prev.filter((m) => m.id !== id));
+    };
+
+    const addTrustBadge = () => {
+        const text = badgeInput.trim().toUpperCase();
+        if (!text) return;
+        const current = settings.heroTrustBadges || [];
+        if (current.includes(text)) return;
+        setSettings((prev) => ({ ...prev, heroTrustBadges: [...current, text] }));
+        setBadgeInput("");
+    };
+
+    const removeTrustBadge = (index: number) => {
+        const current = settings.heroTrustBadges || [];
+        setSettings((prev) => ({
+            ...prev,
+            heroTrustBadges: current.filter((_, i) => i !== index),
+        }));
     };
 
     if (loading) {
@@ -98,7 +186,7 @@ export default function SiteSettingsForm() {
                 <Field label="Favicon (Icon)">
                     <div className="flex gap-2">
                         <input type="text" name="faviconUrl" value={settings.faviconUrl || ""} onChange={handleChange} className="form-input flex-1" placeholder="https://..." />
-                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "faviconUrl" as any)} className="hidden" id="favicon-upload" />
+                        <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "faviconUrl")} className="hidden" id="favicon-upload" />
                         <label htmlFor="favicon-upload" className="upload-btn">Upload</label>
                     </div>
                     {settings.faviconUrl && (
@@ -111,13 +199,35 @@ export default function SiteSettingsForm() {
 
             {/* --- Homepage Hero --- */}
             <SettingsSection title="Homepage Hero" icon={Type}>
+                {/* Preview Toggle */}
+                <button
+                    type="button"
+                    onClick={() => setShowPreview(!showPreview)}
+                    className="flex items-center gap-2 text-sm text-brand-purple hover:text-brand-purple/80 transition-colors cursor-pointer mb-2"
+                >
+                    {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPreview ? "Hide Preview" : "Preview Hero"}
+                </button>
+
+                {/* Live Preview */}
+                {showPreview && (
+                    <HeroPreview
+                        settings={settings}
+                        resolvedMedia={resolvedMedia}
+                        onClose={() => setShowPreview(false)}
+                    />
+                )}
+
+                <Field label="Eyebrow Text">
+                    <input type="text" name="heroEyebrow" value={settings.heroEyebrow || ""} onChange={handleChange} className="form-input" placeholder="CURATED FOR EVERYDAY LIVING" />
+                </Field>
                 <Field label="Heading">
-                    <input type="text" name="heroHeading" value={settings.heroHeading || ""} onChange={handleChange} className="form-input" />
+                    <input type="text" name="heroHeading" value={settings.heroHeading || ""} onChange={handleChange} className="form-input" placeholder="Smart. Comfortable. Intentional." />
                 </Field>
                 <Field label="Subheading">
                     <input type="text" name="heroSubheading" value={settings.heroSubheading || ""} onChange={handleChange} className="form-input" />
                 </Field>
-                <Field label="Hero Image">
+                <Field label="Hero Image (Fallback)">
                     <div className="flex gap-2">
                         <input type="text" name="heroImage" value={settings.heroImage || ""} onChange={handleChange} className="form-input flex-1" placeholder="https://..." />
                         <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e, "heroImage")} className="hidden" id="hero-upload" />
@@ -130,13 +240,144 @@ export default function SiteSettingsForm() {
                     )}
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
-                    <Field label="CTA Text">
-                        <input type="text" name="heroCtaText" value={settings.heroCtaText || ""} onChange={handleChange} className="form-input" />
+                    <Field label="Primary CTA Text">
+                        <input type="text" name="heroCtaText" value={settings.heroCtaText || ""} onChange={handleChange} className="form-input" placeholder="Shop Now" />
                     </Field>
-                    <Field label="CTA Link">
-                        <input type="text" name="heroCtaLink" value={settings.heroCtaLink || ""} onChange={handleChange} className="form-input" />
+                    <Field label="Primary CTA Link">
+                        <input type="text" name="heroCtaLink" value={settings.heroCtaLink || ""} onChange={handleChange} className="form-input" placeholder="/shop" />
                     </Field>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <Field label="Secondary CTA Text">
+                        <input type="text" name="heroCtaSecondaryText" value={settings.heroCtaSecondaryText || ""} onChange={handleChange} className="form-input" placeholder="Our Story" />
+                    </Field>
+                    <Field label="Secondary CTA Link">
+                        <input type="text" name="heroCtaSecondaryLink" value={settings.heroCtaSecondaryLink || ""} onChange={handleChange} className="form-input" placeholder="/#about" />
+                    </Field>
+                </div>
+
+                {/* Trust Badges */}
+                <Field label="Trust Badges">
+                    <div className="flex gap-2 mb-2">
+                        <input
+                            type="text"
+                            value={badgeInput}
+                            onChange={(e) => setBadgeInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTrustBadge(); } }}
+                            className="form-input flex-1"
+                            placeholder="e.g. SAME-DAY DELIVERY"
+                        />
+                        <button type="button" onClick={addTrustBadge} className="px-3 py-2 bg-brand-purple/10 text-brand-purple rounded-lg hover:bg-brand-purple/20 transition-colors cursor-pointer">
+                            <Plus size={16} />
+                        </button>
+                    </div>
+                    {(settings.heroTrustBadges || []).length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {(settings.heroTrustBadges || []).map((badge, i) => (
+                                <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-xs font-medium text-brand-dark/60">
+                                    {badge}
+                                    <button type="button" onClick={() => removeTrustBadge(i)} className="text-brand-dark/30 hover:text-red-500 transition-colors cursor-pointer">
+                                        <X size={12} />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                </Field>
+            </SettingsSection>
+
+            {/* --- Hero Display Panel --- */}
+            <SettingsSection title="Hero Display Panel" icon={Monitor}>
+                <p className="text-xs text-brand-dark/40 -mt-2 mb-4">
+                    Controls the right-side visual of the hero. Choose a display mode and select media from the gallery.
+                    {displayConfig.useFeaturedSlides && (
+                        <span className="block mt-1 text-amber-600 font-medium">
+                            Featured Slides are active — these settings are overridden. Manage slides at /admin/featured.
+                        </span>
+                    )}
+                </p>
+
+                {/* Display Mode Picker */}
+                <Field label="Display Mode">
+                    <div className="flex gap-2">
+                        {([
+                            { mode: "single", icon: ImageIcon, label: "Single Image" },
+                            { mode: "slideshow", icon: Play, label: "Slideshow" },
+                            { mode: "video", icon: Film, label: "Video" },
+                        ] as const).map(({ mode, icon: Icon, label }) => (
+                            <button
+                                key={mode}
+                                type="button"
+                                onClick={() => {
+                                    updateDisplayConfig({ mode, mediaIds: [] });
+                                    setResolvedMedia([]);
+                                }}
+                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all cursor-pointer ${
+                                    displayConfig.mode === mode
+                                        ? "border-brand-purple bg-brand-purple/5 text-brand-purple"
+                                        : "border-gray-100 text-brand-dark/40 hover:border-brand-lilac/30"
+                                }`}
+                            >
+                                <Icon size={16} />
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                </Field>
+
+                {/* Choose from Gallery button */}
+                <Field label="Media">
+                    <button
+                        type="button"
+                        onClick={() => openMediaPicker(displayConfig.mode === "video" ? "video" : "image")}
+                        className="px-4 py-2.5 rounded-lg border border-dashed border-brand-lilac/30 text-sm text-brand-purple hover:bg-brand-purple/5 transition-colors w-full text-center cursor-pointer"
+                    >
+                        Choose from Gallery
+                    </button>
+                </Field>
+
+                {/* Selected Media Preview */}
+                {resolvedMedia.length > 0 && (
+                    <div className="space-y-2">
+                        <p className="text-[10px] font-semibold text-brand-dark/40 uppercase tracking-[0.2em]">
+                            Selected ({resolvedMedia.length})
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {resolvedMedia.map((m) => (
+                                <div key={m.id} className="relative group w-24 h-24 rounded-lg overflow-hidden border border-gray-100">
+                                    {m.type === "image" ? (
+                                        <Image src={m.url} alt={m.name || ""} fill className="object-cover" sizes="96px" />
+                                    ) : (
+                                        <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                                            <Film size={16} className="text-white/60" />
+                                        </div>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeMediaId(m.id)}
+                                        className="absolute top-1 right-1 p-1 rounded-md bg-red-500/80 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    >
+                                        <Trash2 size={10} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Slideshow interval */}
+                {displayConfig.mode === "slideshow" && (
+                    <Field label="Slideshow Interval (seconds)">
+                        <input
+                            type="number"
+                            min={2}
+                            max={30}
+                            value={displayConfig.slideshowInterval || 5}
+                            onChange={(e) => updateDisplayConfig({ slideshowInterval: Number(e.target.value) })}
+                            className="form-input w-32"
+                        />
+                    </Field>
+                )}
             </SettingsSection>
 
             {/* --- Our Story & Why XELLE --- */}
@@ -240,6 +481,16 @@ export default function SiteSettingsForm() {
                 </Button>
             </div>
 
+            {/* Media Picker Modal */}
+            <MediaPicker
+                open={mediaPickerOpen}
+                onClose={() => setMediaPickerOpen(false)}
+                onSelect={handleMediaSelect}
+                multiple={displayConfig.mode === "slideshow"}
+                typeFilter={mediaPickerFilter}
+                selectedIds={displayConfig.mediaIds}
+            />
+
             <style jsx>{`
                 .form-input {
                     width: 100%;
@@ -271,6 +522,179 @@ export default function SiteSettingsForm() {
                 }
             `}</style>
         </form>
+    );
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HERO PREVIEW — accurate scaled-down live preview
+   Mirrors the actual Hero component layout exactly
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function HeroPreview({
+    settings,
+    resolvedMedia,
+    onClose,
+}: {
+    settings: Partial<SiteSettings>;
+    resolvedMedia: Media[];
+    onClose: () => void;
+}) {
+    const heading = settings.heroHeading || "Smart. Comfortable. Intentional.";
+    const headingWords = heading.split(" ");
+    const subheading = settings.heroSubheading || "Thoughtfully curated beauty products, accessories, home essentials, gadgets, and lifestyle finds — all in one place.";
+    const eyebrow = settings.heroEyebrow || "CURATED FOR EVERYDAY LIVING";
+    const ctaText = settings.heroCtaText || "Shop Now";
+    const secondaryCtaText = settings.heroCtaSecondaryText || "Our Story";
+    const trustBadges = settings.heroTrustBadges?.length
+        ? settings.heroTrustBadges
+        : ["QUALITY GUARANTEED", "FAST DELIVERY", "CURATED SELECTION"];
+
+    const previewImages = resolvedMedia.length > 0
+        ? resolvedMedia.map((m) => m.url)
+        : settings.heroImage ? [settings.heroImage] : [];
+    const [previewSlide, setPreviewSlide] = useState(0);
+
+    // Cycle preview slides
+    useEffect(() => {
+        if (previewImages.length <= 1) return;
+        const timer = setInterval(() => {
+            setPreviewSlide((prev) => (prev + 1) % previewImages.length);
+        }, 3000);
+        return () => clearInterval(timer);
+    }, [previewImages.length]);
+
+    return (
+        <div className="mb-6 rounded-xl border border-brand-purple/15 overflow-hidden bg-white shadow-xl shadow-brand-purple/5">
+            {/* Preview chrome — fake browser bar */}
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/70" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-green-400/70" />
+                </div>
+                <div className="flex-1 flex justify-center">
+                    <span className="text-[9px] text-brand-dark/30 bg-gray-100 rounded-md px-8 py-1 font-mono">
+                        yoursite.com
+                    </span>
+                </div>
+                <button type="button" onClick={onClose} className="text-brand-dark/30 hover:text-brand-dark transition-colors cursor-pointer">
+                    <X size={14} />
+                </button>
+            </div>
+
+            {/* Fake header bar */}
+            <div className="flex items-center justify-between px-5 py-2 border-b border-gray-50">
+                <span className="font-serif text-[10px] font-bold tracking-widest text-brand-dark">
+                    {settings.siteName || "XELLÉ"}
+                </span>
+                <div className="flex gap-3">
+                    {["Home", "Shop", "About"].map((l) => (
+                        <span key={l} className="text-[7px] text-brand-dark/30 tracking-wide">{l}</span>
+                    ))}
+                </div>
+            </div>
+
+            {/* Hero preview — split layout */}
+            <div className="grid grid-cols-2 min-h-[340px]">
+                {/* Left side — text */}
+                <div className="flex items-center px-5 sm:px-7 py-8">
+                    <div className="w-full max-w-[280px]">
+                        {/* Eyebrow */}
+                        <div className="flex items-center gap-2 mb-5">
+                            <span className="w-7 h-[1.5px] bg-brand-purple" />
+                            <span className="text-[7px] uppercase tracking-[0.25em] text-brand-dark/35 font-medium">
+                                {eyebrow}
+                            </span>
+                        </div>
+
+                        {/* Heading */}
+                        <h3 className="font-serif text-[17px] sm:text-xl font-bold text-brand-dark leading-[1.1] mb-3">
+                            {headingWords.map((word, i) => (
+                                <span key={i} className={i === headingWords.length - 1 ? "text-brand-purple italic" : ""}>
+                                    {word}{" "}
+                                </span>
+                            ))}
+                        </h3>
+
+                        {/* Subheading */}
+                        <p className="text-[8px] sm:text-[9px] text-brand-dark/35 leading-relaxed mb-5 line-clamp-3">
+                            {subheading}
+                        </p>
+
+                        {/* CTAs */}
+                        <div className="flex items-center gap-3 mb-5">
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-brand-dark text-white text-[8px] font-semibold rounded-full">
+                                {ctaText}
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </span>
+                            <span className="text-[7px] uppercase tracking-[0.15em] font-semibold text-brand-dark/40 relative">
+                                {secondaryCtaText}
+                            </span>
+                        </div>
+
+                        {/* Trust badges */}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                            {trustBadges.map((badge, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                    <span className="w-[3px] h-[3px] rounded-full bg-brand-purple/25" />
+                                    <span className="text-[6px] uppercase tracking-[0.18em] text-brand-dark/20 font-medium">
+                                        {badge}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right side — image */}
+                <div className="relative bg-gray-100 overflow-hidden">
+                    {previewImages.length > 0 ? (
+                        <>
+                            <img
+                                src={previewImages[previewSlide] || previewImages[0]}
+                                alt="Preview"
+                                className="w-full h-full object-cover transition-opacity duration-500"
+                            />
+                            {/* Fake nav arrows */}
+                            <div className="absolute left-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-black/15 flex items-center justify-center">
+                                <ChevronLeft size={8} className="text-white/70" />
+                            </div>
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-black/15 flex items-center justify-center">
+                                <ChevronRight size={8} className="text-white/70" />
+                            </div>
+                            {/* Fake product overlay */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent pt-8 pb-3 px-3">
+                                <p className="font-serif text-[10px] font-semibold text-white">Product Name</p>
+                                <p className="text-[8px] text-white/60">N7,000.00</p>
+                            </div>
+                            {/* Dots */}
+                            {previewImages.length > 1 && (
+                                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                                    {previewImages.map((_, i) => (
+                                        <span key={i} className={`rounded-full transition-all ${i === previewSlide ? "w-3 h-1 bg-white" : "w-1 h-1 bg-white/40"}`} />
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand-lilac/15 via-white to-brand-purple/8">
+                            <div className="text-center">
+                                <ImageIcon size={24} className="text-brand-purple/15 mx-auto mb-1" />
+                                <span className="text-[7px] text-brand-dark/20 font-medium">No media selected</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Preview label */}
+            <div className="px-4 py-2 bg-brand-purple/[0.03] border-t border-brand-purple/8 flex items-center justify-between">
+                <span className="text-[10px] text-brand-purple/60 font-medium tracking-wide">
+                    LIVE PREVIEW — updates as you edit above
+                </span>
+                <span className="text-[9px] text-brand-dark/20">Desktop layout</span>
+            </div>
+        </div>
     );
 }
 

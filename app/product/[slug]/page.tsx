@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Header from "@/components/modules/Header";
 import Footer from "@/components/modules/Footer";
 import ProductDetails from "@/components/modules/ProductDetails";
 import ProductImageGallery from "@/components/modules/ProductImageGallery";
 import YouMayAlsoLike from "@/components/modules/YouMayAlsoLike";
+import ProductReviews from "@/components/modules/ProductReviews";
 import { getProductBySlug, getProducts } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,9 @@ export default async function ProductPage({ params }: Props) {
                     <ProductImageGallery images={product.images} name={product.name} />
                     <ProductDetails product={product} />
                 </div>
+                <Suspense fallback={null}>
+                    <ProductReviews productId={product.id} productName={product.name} />
+                </Suspense>
             </main>
             <YouMayAlsoLike currentProduct={product} allProducts={allProducts} />
             <Footer />

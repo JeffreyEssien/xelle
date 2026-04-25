@@ -11,6 +11,7 @@ import { ShoppingBag, Heart, Eye } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import QuickViewModal from "@/components/modules/QuickViewModal";
+import MediaRenderer from "@/components/ui/MediaRenderer";
 
 interface ProductCardProps {
     product: Product;
@@ -50,7 +51,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <Link href={`/product/${product.slug}`} className="block">
                     {/* Image */}
                     <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-neutral-50">
-                        <Image
+                        <MediaRenderer
                             src={product.images[0]}
                             alt={product.name}
                             fill
@@ -58,15 +59,17 @@ export default function ProductCard({ product }: ProductCardProps) {
                             className="object-cover transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
                         />
 
-                        {/* Second image on hover */}
+                        {/* Second media on hover */}
                         {product.images[1] && (
-                            <Image
-                                src={product.images[1]}
-                                alt={`${product.name} hover`}
-                                fill
-                                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                                className="object-cover absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out"
-                            />
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out">
+                                <MediaRenderer
+                                    src={product.images[1]}
+                                    alt={`${product.name} hover`}
+                                    fill
+                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                                    className="object-cover"
+                                />
+                            </div>
                         )}
 
                         {/* Gradient overlay */}

@@ -5,6 +5,7 @@ import type { Product, InventoryItem, Category } from "@/types";
 import Button from "@/components/ui/Button";
 import { uploadProductImage } from "@/lib/uploadImage";
 import { createProduct, updateProduct, createInventoryItem, getInventoryItems, getCategories } from "@/lib/queries";
+import MediaRenderer from "@/components/ui/MediaRenderer";
 import { revalidateShop } from "@/app/actions";
 import RichTextEditor from "@/components/modules/RichTextEditor";
 import { toast } from "sonner";
@@ -99,7 +100,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
         e.preventDefault();
 
         if (imageUrls.length === 0) {
-            toast.error("Please upload at least one image.");
+            toast.error("Please upload at least one image or video.");
             return;
         }
 
@@ -328,7 +329,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
                         {imageUrls.map((url, idx) => (
                             <div key={idx} className="relative aspect-square rounded-md overflow-hidden border border-brand-lilac/20">
-                                <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                                <MediaRenderer src={url} alt="Preview" fill sizes="150px" className="object-cover" />
                             </div>
                         ))}
                         {uploading && (
@@ -338,10 +339,10 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                         )}
                     </div>
                     <div className="border-2 border-dashed border-brand-lilac/30 rounded-md p-8 text-center hover:bg-brand-lilac/5 transition-colors relative">
-                        <input type="file" multiple accept="image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                        <input type="file" multiple accept="image/*,video/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                         <div className="space-y-1 pointer-events-none">
-                            <p className="text-sm text-brand-dark/60 font-medium">Click or drag images here</p>
-                            <p className="text-xs text-brand-dark/40">JPG, PNG, WEBP</p>
+                            <p className="text-sm text-brand-dark/60 font-medium">Click or drag media here</p>
+                            <p className="text-xs text-brand-dark/40">JPG, PNG, WEBP, MP4, MOV</p>
                         </div>
                     </div>
                 </div>

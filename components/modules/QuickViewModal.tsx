@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { X, ShoppingBag, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { isVideoUrl } from "@/lib/media";
+import MediaRenderer from "@/components/ui/MediaRenderer";
 import DOMPurify from "isomorphic-dompurify";
 import type { Product } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
@@ -76,12 +78,13 @@ export default function QuickViewModal({ product, isOpen, onClose }: QuickViewMo
 
                         {/* Image */}
                         <div className="relative aspect-[3/4] bg-neutral-50 rounded-l-2xl overflow-hidden">
-                            <Image
+                            <MediaRenderer
                                 src={product.images[imageIndex]}
                                 alt={product.name}
                                 fill
                                 sizes="(max-width: 768px) 100vw, 50vw"
                                 className="object-cover"
+                                showControls={isVideoUrl(product.images[imageIndex])}
                             />
 
                             {product.images.length > 1 && (

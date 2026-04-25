@@ -403,10 +403,25 @@ export async function sendReviewRequestEmail(order: Order): Promise<void> {
   if (!process.env.SMTP_PASSWORD) return;
 
   const firstName = order.shippingAddress?.firstName || order.customerName.split(" ")[0];
-  const itemNames = order.items.map(i => i.product.name).join(", ");
   const reorderMessage = encodeURIComponent(
-    `Hi! I'd like to reorder from my previous order *${order.id}*. Same items please!\n\nItems: ${itemNames}`
+    `Hi! I'd like to reorder from my previous order *${order.id}*. Same items please!\n\nItems: ${order.items.map(i => i.product.name).join(", ")}`
   );
+
+  // Build product review links — one per item
+  const reviewLinks = order.items.map(i => {
+    const slug = i.product.slug || i.product.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const reviewUrl = `${SITE_URL}/product/${slug}?review=true`;
+    return `
+      <tr>
+        <td style="padding: 10px 0; border-bottom: 1px solid #f3f0f7;">
+          <div style="font-size: 14px; color: #1a1a2e; font-weight: 500;">${i.product.name}</div>
+          ${i.variant ? `<div style="font-size: 11px; color: #999;">${i.variant.name}</div>` : ""}
+        </td>
+        <td style="padding: 10px 0; border-bottom: 1px solid #f3f0f7; text-align: right;">
+          <a href="${reviewUrl}" style="display: inline-block; background: linear-gradient(135deg, #1a1a2e 0%, #7c3aed 100%); color: white; text-decoration: none; font-size: 12px; font-weight: 600; padding: 6px 16px; border-radius: 20px;">⭐ Review</a>
+        </td>
+      </tr>`;
+  }).join("");
 
   const html = `
 <!DOCTYPE html>
@@ -431,17 +446,21 @@ export async function sendReviewRequestEmail(order: Order): Promise<void> {
       <h2 style="font-size: 22px; color: #1a1a2e; text-align: center; margin: 0 0 16px 0;">How Was Your Experience?</h2>
 
       <p style="font-size: 14px; color: #1a1a2e; margin: 0 0 4px 0;">Hi ${firstName},</p>
-      <p style="font-size: 14px; color: #666; margin: 0 0 20px 0; line-height: 1.6;">We hope you're loving your recent order! Your feedback helps us serve you better. Let us know how everything went — we'd truly appreciate it. 💜</p>
+      <p style="font-size: 14px; color: #666; margin: 0 0 20px 0; line-height: 1.6;">We hope you're loving your recent order! Your feedback helps us serve you better and helps other shoppers make great choices. Leave a review for each product below — we'd truly appreciate it.</p>
 
-      <div style="background: #f8f7fa; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-        <p style="font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 8px 0;">Your Items</p>
-        <p style="font-size: 14px; color: #1a1a2e; margin: 0;">${itemNames}</p>
+      <!-- Product Review Links -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px;">
+        ${reviewLinks}
+      </table>
+
+      <div style="background: #f8f7fa; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+        <p style="font-size: 12px; color: #666; margin: 0; line-height: 1.5;">
+          💡 <strong>Tip:</strong> Use the same email you ordered with (${order.email}) when submitting your review so we can verify your purchase.
+        </p>
       </div>
 
-      <!-- CTA Buttons -->
+      <!-- Reorder CTA -->
       <div style="text-align: center;">
-        <a href="https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi! I just received my order *${order.id}* and I wanted to share some feedback: `)}" style="display: inline-block; background: #25D366; color: white; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 25px; margin-bottom: 12px;">💬 Share Feedback on WhatsApp</a>
-        <br>
         <a href="https://wa.me/${WHATSAPP_NUMBER}?text=${reorderMessage}" style="display: inline-block; background: #7c3aed; color: white; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 25px;">🔄 Reorder on WhatsApp</a>
       </div>
     </div>
@@ -458,7 +477,7 @@ export async function sendReviewRequestEmail(order: Order): Promise<void> {
     await transporter.sendMail({
       from: `"${SITE_NAME}" <${process.env.SMTP_EMAIL || SITE_EMAIL}>`,
       to: order.email,
-      subject: `⭐ How Was Your Order? — ${SITE_NAME}`,
+      subject: `⭐ How Was Your Order? Review Your Items — ${SITE_NAME}`,
       html,
     });
     console.log(`✅ Review request email sent to ${order.email}`);

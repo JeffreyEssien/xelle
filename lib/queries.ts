@@ -1,5 +1,5 @@
 import { getSupabaseClient, getServiceClient } from "@/lib/supabase";
-import type { Product, Category, Order, SiteSettings, Coupon, Profile, InventoryLog, Page, InventoryItem } from "@/types";
+import type { Product, Category, Order, SiteSettings, Coupon, Profile, InventoryLog, Page, InventoryItem, Review, Media, HeroDisplayConfig, FeaturedSlide } from "@/types";
 
 interface DbProduct {
     id: string;
@@ -511,6 +511,10 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
         heroImage: data.hero_image,
         heroCtaText: data.hero_cta_text,
         heroCtaLink: data.hero_cta_link,
+        heroEyebrow: data.hero_eyebrow,
+        heroCtaSecondaryText: data.hero_cta_secondary_text,
+        heroCtaSecondaryLink: data.hero_cta_secondary_link,
+        heroTrustBadges: data.hero_trust_badges || [],
         faviconUrl: data.favicon_url,
         ourStoryHeading: data.our_story_heading,
         ourStoryText: data.our_story_text,
@@ -533,6 +537,9 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
         footerTagline: data.footer_tagline,
         // Shipping
         freeShippingThreshold: data.free_shipping_threshold != null ? Number(data.free_shipping_threshold) : undefined,
+        // Hero display
+        heroDisplayConfig: data.hero_display_config || { mode: "single", mediaIds: [], slideshowInterval: 5, useFeaturedSlides: false },
+        featuredSlides: data.featured_slides || [],
     };
 }
 
@@ -548,6 +555,10 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
     if (settings.heroImage !== undefined) dbSettings.hero_image = settings.heroImage;
     if (settings.heroCtaText !== undefined) dbSettings.hero_cta_text = settings.heroCtaText;
     if (settings.heroCtaLink !== undefined) dbSettings.hero_cta_link = settings.heroCtaLink;
+    if (settings.heroEyebrow !== undefined) dbSettings.hero_eyebrow = settings.heroEyebrow;
+    if (settings.heroCtaSecondaryText !== undefined) dbSettings.hero_cta_secondary_text = settings.heroCtaSecondaryText;
+    if (settings.heroCtaSecondaryLink !== undefined) dbSettings.hero_cta_secondary_link = settings.heroCtaSecondaryLink;
+    if (settings.heroTrustBadges !== undefined) dbSettings.hero_trust_badges = settings.heroTrustBadges;
     if (settings.faviconUrl !== undefined) dbSettings.favicon_url = settings.faviconUrl;
     if (settings.ourStoryHeading !== undefined) dbSettings.our_story_heading = settings.ourStoryHeading;
     if (settings.ourStoryText !== undefined) dbSettings.our_story_text = settings.ourStoryText;
@@ -570,6 +581,9 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
     if (settings.footerTagline !== undefined) dbSettings.footer_tagline = settings.footerTagline;
     // Shipping
     if (settings.freeShippingThreshold !== undefined) dbSettings.free_shipping_threshold = settings.freeShippingThreshold;
+    // Hero display
+    if (settings.heroDisplayConfig !== undefined) dbSettings.hero_display_config = settings.heroDisplayConfig;
+    if (settings.featuredSlides !== undefined) dbSettings.featured_slides = settings.featuredSlides;
 
     // init if not exists, otherwise update
     const { error } = await supabase
@@ -1350,6 +1364,321 @@ export async function getAllStockpiles(): Promise<Stockpile[]> {
     return (data || []).map((s) =>
         toStockpile(s, (allItems || []).filter((i) => i.stockpile_id === s.id))
     );
+}
+
+// ═══════════════════════════════════════
+// Media Queries (Cloudinary Gallery)
+// ═══════════════════════════════════════
+
+function toMedia(row: any): Media {
+    return {
+        id: row.id,
+        url: row.url,
+        publicId: row.public_id,
+        type: row.type,
+        name: row.name || undefined,
+        folder: row.folder,
+        width: row.width || undefined,
+        height: row.height || undefined,
+        bytes: row.bytes || undefined,
+        format: row.format || undefined,
+        createdAt: row.created_at,
+    };
+}
+
+/** Get all media, newest first. Optional type filter. */
+export async function getMedia(type?: "image" | "video"): Promise<Media[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    let query = supabase.from("media").select("*").order("created_at", { ascending: false });
+    if (type) query = query.eq("type", type);
+
+    const { data, error } = await query;
+    if (error) return [];
+    return (data || []).map(toMedia);
+}
+
+/** Get media by ID */
+export async function getMediaById(id: string): Promise<Media | null> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase.from("media").select("*").eq("id", id).single();
+    if (error || !data) return null;
+    return toMedia(data);
+}
+
+/** Get multiple media by IDs (for resolving hero config) */
+export async function getMediaByIds(ids: string[]): Promise<Media[]> {
+    if (ids.length === 0) return [];
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase.from("media").select("*").in("id", ids);
+    if (error) return [];
+    // Preserve the order of the input IDs
+    const map = new Map((data || []).map(r => [r.id, toMedia(r)]));
+    return ids.map(id => map.get(id)).filter(Boolean) as Media[];
+}
+
+/** Save media metadata after Cloudinary upload */
+export async function createMedia(input: {
+    url: string;
+    publicId: string;
+    type: "image" | "video";
+    name?: string;
+    folder?: string;
+    width?: number;
+    height?: number;
+    bytes?: number;
+    format?: string;
+}): Promise<Media> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { data, error } = await supabase
+        .from("media")
+        .insert({
+            url: input.url,
+            public_id: input.publicId,
+            type: input.type,
+            name: input.name || null,
+            folder: input.folder || "xelle",
+            width: input.width || null,
+            height: input.height || null,
+            bytes: input.bytes || null,
+            format: input.format || null,
+        })
+        .select("*")
+        .single();
+
+    if (error) throw error;
+    return toMedia(data);
+}
+
+/** Delete media record (Cloudinary deletion happens in API route) */
+export async function deleteMedia(id: string): Promise<{ publicId: string; type: "image" | "video" } | null> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    // Get public_id + type before deleting so we can destroy from Cloudinary
+    const { data: existing } = await supabase.from("media").select("public_id, type").eq("id", id).single();
+    if (!existing) return null;
+
+    const { error } = await supabase.from("media").delete().eq("id", id);
+    if (error) throw error;
+    return { publicId: existing.public_id, type: existing.type as "image" | "video" };
+}
+
+// ═══════════════════════════════════════
+// Review Queries
+// ═══════════════════════════════════════
+
+function toReview(row: any): Review {
+    return {
+        id: row.id,
+        productId: row.product_id,
+        orderId: row.order_id,
+        customerName: row.customer_name,
+        customerEmail: row.customer_email,
+        rating: row.rating,
+        title: row.title,
+        body: row.body,
+        isApproved: row.is_approved,
+        isVisible: row.is_visible,
+        displayOrder: row.display_order,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+    };
+}
+
+/** Get visible reviews for a product (public, ordered by admin ranking) */
+export async function getProductReviews(productId: string): Promise<Review[]> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("product_id", productId)
+        .eq("is_visible", true)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: false });
+
+    if (error) return [];
+    return (data || []).map(toReview);
+}
+
+/** Get all reviews for a product (admin — includes hidden/unapproved) */
+export async function getProductReviewsAdmin(productId: string): Promise<Review[]> {
+    const supabase = getServiceClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select("*")
+        .eq("product_id", productId)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: false });
+
+    if (error) return [];
+    return (data || []).map(toReview);
+}
+
+/** Get all reviews across all products (admin) */
+export async function getAllReviews(): Promise<(Review & { productName?: string })[]> {
+    const supabase = getServiceClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select("*, product:products(name)")
+        .order("created_at", { ascending: false });
+
+    if (error) return [];
+    return (data || []).map((row: any) => ({
+        ...toReview(row),
+        productName: row.product?.name || "Unknown",
+    }));
+}
+
+/** Submit a review (verified purchase check happens in API route) */
+export async function createReview(input: {
+    productId: string;
+    orderId: string;
+    customerName: string;
+    customerEmail: string;
+    rating: number;
+    title: string;
+    body: string;
+}): Promise<Review> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .insert({
+            product_id: input.productId,
+            order_id: input.orderId,
+            customer_name: input.customerName,
+            customer_email: input.customerEmail,
+            rating: input.rating,
+            title: input.title,
+            body: input.body,
+            is_approved: false,
+            is_visible: false,
+            display_order: 999, // default to end
+        })
+        .select("*")
+        .single();
+
+    if (error) throw error;
+    return toReview(data);
+}
+
+/** Admin: approve + make visible */
+export async function approveReview(id: string): Promise<void> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase
+        .from("reviews")
+        .update({ is_approved: true, is_visible: true, updated_at: new Date().toISOString() })
+        .eq("id", id);
+    if (error) throw error;
+}
+
+/** Admin: hide a review */
+export async function hideReview(id: string): Promise<void> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase
+        .from("reviews")
+        .update({ is_visible: false, updated_at: new Date().toISOString() })
+        .eq("id", id);
+    if (error) throw error;
+}
+
+/** Admin: update display order for reviews */
+export async function updateReviewOrder(reviews: { id: string; displayOrder: number }[]): Promise<void> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    for (const r of reviews) {
+        const { error } = await supabase
+            .from("reviews")
+            .update({ display_order: r.displayOrder, updated_at: new Date().toISOString() })
+            .eq("id", r.id);
+        if (error) throw error;
+    }
+}
+
+/** Admin: delete a review */
+export async function deleteReview(id: string): Promise<void> {
+    const supabase = getServiceClient();
+    if (!supabase) throw new Error("Database not available");
+
+    const { error } = await supabase.from("reviews").delete().eq("id", id);
+    if (error) throw error;
+}
+
+/** Check if customer already reviewed this product for this order */
+export async function hasReviewed(productId: string, orderId: string, email: string): Promise<boolean> {
+    const supabase = getServiceClient();
+    if (!supabase) return false;
+
+    const { data } = await supabase
+        .from("reviews")
+        .select("id")
+        .eq("product_id", productId)
+        .eq("order_id", orderId)
+        .eq("customer_email", email)
+        .maybeSingle();
+
+    return !!data;
+}
+
+/** Verify purchase: check if email has a delivered order containing this product */
+export async function verifyPurchase(productId: string, email: string): Promise<{ verified: boolean; orderId?: string }> {
+    const supabase = getServiceClient();
+    if (!supabase) return { verified: false };
+
+    const { data, error } = await supabase
+        .from("orders")
+        .select("id, items, status")
+        .eq("email", email)
+        .eq("status", "delivered")
+        .order("created_at", { ascending: false });
+
+    if (error || !data) return { verified: false };
+
+    for (const order of data) {
+        const items = order.items as any[];
+        if (items.some((item: any) => item.product?.id === productId)) {
+            return { verified: true, orderId: order.id };
+        }
+    }
+
+    return { verified: false };
+}
+
+/** Get average rating for a product */
+export async function getProductRating(productId: string): Promise<{ average: number; count: number }> {
+    const supabase = getSupabaseClient();
+    if (!supabase) return { average: 0, count: 0 };
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("product_id", productId)
+        .eq("is_visible", true);
+
+    if (error || !data || data.length === 0) return { average: 0, count: 0 };
+
+    const sum = data.reduce((acc, r) => acc + r.rating, 0);
+    return { average: Math.round((sum / data.length) * 10) / 10, count: data.length };
 }
 
 /** Expire stockpiles older than 2 weeks */

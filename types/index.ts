@@ -84,6 +84,55 @@ export interface Order {
     deliveryDiscount?: { percent: number; label: string | null };
 }
 
+export interface Media {
+    id: string;
+    url: string;
+    publicId: string;
+    type: "image" | "video";
+    name?: string;
+    folder: string;
+    width?: number;
+    height?: number;
+    bytes?: number;
+    format?: string;
+    createdAt: string;
+}
+
+export type HeroDisplayMode = "single" | "slideshow" | "video";
+
+export interface HeroDisplayConfig {
+    mode: HeroDisplayMode;
+    mediaIds: string[]; // references media table IDs
+    slideshowInterval: number; // seconds between slides
+    useFeaturedSlides: boolean;
+}
+
+export type FeaturedSlideType = "product" | "media" | "promo";
+export type OverlayPosition = "bottom-left" | "bottom-right" | "center" | "top-left" | "top-right";
+export type OverlayStyle = "dark-glass" | "light-glass" | "gradient" | "none";
+
+export interface FeaturedSlide {
+    id: string;
+    type: FeaturedSlideType;
+    isActive: boolean;
+    sortOrder: number;
+    // Content
+    imageUrl?: string;
+    videoUrl?: string;
+    productId?: string; // for product slides
+    productName?: string;
+    productPrice?: number;
+    productSlug?: string;
+    mediaId?: string; // for media slides
+    // Overlay
+    headline?: string;
+    subtitle?: string;
+    ctaText?: string;
+    ctaLink?: string;
+    overlayPosition: OverlayPosition;
+    overlayStyle: OverlayStyle;
+}
+
 export interface SiteSettings {
     id: boolean;
     siteName: string;
@@ -93,6 +142,10 @@ export interface SiteSettings {
     heroImage?: string;
     heroCtaText?: string;
     heroCtaLink?: string;
+    heroEyebrow?: string;
+    heroCtaSecondaryText?: string;
+    heroCtaSecondaryLink?: string;
+    heroTrustBadges?: string[]; // e.g. ["SAME-DAY DELIVERY", "QUALITY GUARANTEED"]
     // New Fields
     faviconUrl?: string;
     ourStoryHeading?: string;
@@ -116,6 +169,9 @@ export interface SiteSettings {
     footerTagline?: string;
     // Shipping
     freeShippingThreshold?: number;
+    // Hero display
+    heroDisplayConfig?: HeroDisplayConfig;
+    featuredSlides?: FeaturedSlide[];
 }
 
 export interface Coupon {
@@ -196,4 +252,20 @@ export interface StockpileItem {
     pricePaid: number;
     orderId?: string;
     createdAt: string;
+}
+
+export interface Review {
+    id: string;
+    productId: string;
+    orderId: string;
+    customerName: string;
+    customerEmail: string;
+    rating: number; // 1-5
+    title: string;
+    body: string;
+    isApproved: boolean;
+    isVisible: boolean;
+    displayOrder: number; // lower = shows first, admin can reorder
+    createdAt: string;
+    updatedAt: string;
 }
