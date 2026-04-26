@@ -199,6 +199,23 @@ export default function SiteSettingsForm() {
 
             {/* --- Homepage Hero --- */}
             <SettingsSection title="Homepage Hero" icon={Type}>
+                {/* Hero Enabled Toggle */}
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-white border border-gray-100 -mt-2 mb-2">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={settings.heroEnabled !== false}
+                            onChange={(e) => setSettings((prev) => ({ ...prev, heroEnabled: e.target.checked }))}
+                            className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-brand-purple transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+                    </label>
+                    <div>
+                        <p className="text-sm font-medium text-brand-dark">Show Hero Section</p>
+                        <p className="text-xs text-brand-dark/40">Turn OFF to hide the hero entirely. Page content shifts up.</p>
+                    </div>
+                </div>
+
                 {/* Preview Toggle */}
                 <button
                     type="button"

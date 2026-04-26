@@ -110,6 +110,8 @@ export interface HeroDisplayConfig {
 export type FeaturedSlideType = "product" | "media" | "promo";
 export type OverlayPosition = "bottom-left" | "bottom-right" | "center" | "top-left" | "top-right";
 export type OverlayStyle = "dark-glass" | "light-glass" | "gradient" | "none";
+export type OverlayFont = "serif" | "sans" | "mono";
+export type OverlayGradient = "none" | "dark-bottom" | "dark-top" | "dark-full" | "brand-bottom" | "brand-radial" | "warm-bottom" | "cool-bottom";
 
 export interface FeaturedSlide {
     id: string;
@@ -131,12 +133,17 @@ export interface FeaturedSlide {
     ctaLink?: string;
     overlayPosition: OverlayPosition;
     overlayStyle: OverlayStyle;
+    // Advanced overlay customization
+    textColor?: string;
+    fontStyle?: OverlayFont;
+    overlayGradient?: OverlayGradient;
 }
 
 export interface SiteSettings {
     id: boolean;
     siteName: string;
     logoUrl?: string;
+    heroEnabled?: boolean;
     heroHeading?: string;
     heroSubheading?: string;
     heroImage?: string;

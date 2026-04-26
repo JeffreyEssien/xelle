@@ -449,6 +449,9 @@ function FeaturedPanel({ slides, interval }: { slides: FeaturedSlide[]; interval
                             ctaLink={slide.productSlug ? `/product/${slide.productSlug}` : slide.ctaLink}
                             position={slide.overlayPosition}
                             style={slide.overlayStyle}
+                            textColor={slide.textColor}
+                            fontStyle={slide.fontStyle}
+                            overlayGradient={slide.overlayGradient}
                         />
                     )}
                 </motion.div>

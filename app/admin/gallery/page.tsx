@@ -47,9 +47,7 @@ export default function GalleryPage() {
         if (!files || files.length === 0) return;
         setUploading(true);
         try {
-            for (const file of Array.from(files)) {
-                await uploadToGallery(file);
-            }
+            await Promise.all(Array.from(files).map((file) => uploadToGallery(file)));
             await fetchMedia();
         } catch (err) {
             console.error("Upload failed:", err);

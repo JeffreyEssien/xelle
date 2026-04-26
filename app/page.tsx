@@ -23,15 +23,19 @@ export default async function Home() {
   // Resolve featured slide product images (already have URLs in the slides)
   const featuredSlides = settings?.featuredSlides || [];
 
+  const heroEnabled = settings?.heroEnabled !== false; // default ON
+
   return (
     <>
       <Header />
       <main>
-        <Hero
-          settings={settings}
-          resolvedMedia={resolvedMedia}
-          featuredSlides={featuredSlides}
-        />
+        {heroEnabled && (
+          <Hero
+            settings={settings}
+            resolvedMedia={resolvedMedia}
+            featuredSlides={featuredSlides}
+          />
+        )}
         <NewArrivals products={newProducts} />
         <ShopByCategory categories={categories} />
         <AboutSnippet />

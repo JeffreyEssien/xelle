@@ -538,6 +538,7 @@ export async function getSiteSettings(): Promise<SiteSettings | null> {
         // Shipping
         freeShippingThreshold: data.free_shipping_threshold != null ? Number(data.free_shipping_threshold) : undefined,
         // Hero display
+        heroEnabled: data.hero_enabled !== false,
         heroDisplayConfig: data.hero_display_config || { mode: "single", mediaIds: [], slideshowInterval: 5, useFeaturedSlides: false },
         featuredSlides: data.featured_slides || [],
     };
@@ -582,6 +583,7 @@ export async function updateSiteSettings(settings: Partial<SiteSettings>): Promi
     // Shipping
     if (settings.freeShippingThreshold !== undefined) dbSettings.free_shipping_threshold = settings.freeShippingThreshold;
     // Hero display
+    if (settings.heroEnabled !== undefined) dbSettings.hero_enabled = settings.heroEnabled;
     if (settings.heroDisplayConfig !== undefined) dbSettings.hero_display_config = settings.heroDisplayConfig;
     if (settings.featuredSlides !== undefined) dbSettings.featured_slides = settings.featuredSlides;
 

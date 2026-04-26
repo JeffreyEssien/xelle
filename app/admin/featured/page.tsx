@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSiteSettings, updateSiteSettings, getProducts } from "@/lib/queries";
-import type { SiteSettings, FeaturedSlide, OverlayPosition, OverlayStyle, Product } from "@/types";
+import type { SiteSettings, FeaturedSlide, OverlayPosition, OverlayStyle, OverlayFont, OverlayGradient, Product } from "@/types";
 import type { Media } from "@/types";
 import MediaPicker from "@/components/modules/MediaPicker";
 import FeaturedOverlay from "@/components/modules/FeaturedOverlay";
@@ -29,6 +29,34 @@ const OVERLAY_STYLES: { value: OverlayStyle; label: string }[] = [
     { value: "light-glass", label: "Light Glass" },
     { value: "gradient", label: "Gradient" },
     { value: "none", label: "None" },
+];
+
+const OVERLAY_FONTS: { value: OverlayFont; label: string; preview: string }[] = [
+    { value: "serif", label: "Serif", preview: "font-serif" },
+    { value: "sans", label: "Sans", preview: "font-sans" },
+    { value: "mono", label: "Mono", preview: "font-mono" },
+];
+
+const OVERLAY_GRADIENTS: { value: OverlayGradient; label: string; swatch: string }[] = [
+    { value: "none", label: "None", swatch: "bg-gray-100" },
+    { value: "dark-bottom", label: "Dark ↑", swatch: "bg-gradient-to-t from-gray-900 to-gray-400" },
+    { value: "dark-top", label: "Dark ↓", swatch: "bg-gradient-to-b from-gray-900 to-gray-400" },
+    { value: "dark-full", label: "Dark Full", swatch: "bg-gray-700" },
+    { value: "brand-bottom", label: "Brand ↑", swatch: "bg-gradient-to-t from-[#4B0082] to-[#B665D2]" },
+    { value: "brand-radial", label: "Brand Glow", swatch: "bg-[radial-gradient(circle,#B665D2_0%,transparent_70%)]" },
+    { value: "warm-bottom", label: "Warm ↑", swatch: "bg-gradient-to-t from-amber-900 to-orange-400" },
+    { value: "cool-bottom", label: "Cool ↑", swatch: "bg-gradient-to-t from-slate-900 to-blue-400" },
+];
+
+const TEXT_COLOR_PRESETS = [
+    { value: "#ffffff", label: "White" },
+    { value: "#4B0082", label: "Brand Dark" },
+    { value: "#B665D2", label: "Brand Purple" },
+    { value: "#C8A2C8", label: "Lilac" },
+    { value: "#F5F5DC", label: "Cream" },
+    { value: "#1a1a1a", label: "Black" },
+    { value: "#D4AF37", label: "Gold" },
+    { value: "#E8CEBF", label: "Blush" },
 ];
 
 function generateId() {
@@ -343,6 +371,9 @@ export default function AdminFeaturedPage() {
                                                     ctaLink={slide.ctaLink}
                                                     position={slide.overlayPosition}
                                                     style={slide.overlayStyle}
+                                                    textColor={slide.textColor}
+                                                    fontStyle={slide.fontStyle}
+                                                    overlayGradient={slide.overlayGradient}
                                                 />
                                                 <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-black/50 text-[9px] text-white/60 font-medium">
                                                     LIVE PREVIEW
@@ -487,6 +518,88 @@ export default function AdminFeaturedPage() {
                                                 ))}
                                             </div>
                                         </div>
+
+                                        {/* Layer Gradient */}
+                                        <div>
+                                            <label className="block text-[10px] font-semibold text-brand-dark/40 uppercase tracking-[0.2em] mb-2">Layer Gradient</label>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {OVERLAY_GRADIENTS.map((g) => (
+                                                    <button
+                                                        key={g.value}
+                                                        type="button"
+                                                        onClick={() => updateSlide(slide.id, { overlayGradient: g.value })}
+                                                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-all duration-150 active:scale-[0.95] ${
+                                                            (slide.overlayGradient || "none") === g.value
+                                                                ? "bg-brand-purple text-white shadow-sm"
+                                                                : "bg-gray-50 text-brand-dark/40 border border-gray-100 hover:border-brand-lilac/30"
+                                                        }`}
+                                                    >
+                                                        <span className={`inline-block w-3 h-3 rounded-full ${g.swatch} shrink-0`} />
+                                                        {g.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Text Color */}
+                                        <div>
+                                            <label className="block text-[10px] font-semibold text-brand-dark/40 uppercase tracking-[0.2em] mb-2">Text Color</label>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {TEXT_COLOR_PRESETS.map((c) => (
+                                                    <button
+                                                        key={c.value}
+                                                        type="button"
+                                                        onClick={() => updateSlide(slide.id, { textColor: c.value })}
+                                                        title={c.label}
+                                                        className={`w-7 h-7 rounded-full border-2 cursor-pointer transition-all duration-150 active:scale-[0.9] ${
+                                                            slide.textColor === c.value
+                                                                ? "border-brand-purple scale-110 shadow-md"
+                                                                : "border-gray-200 hover:border-brand-lilac/40"
+                                                        }`}
+                                                        style={{ backgroundColor: c.value }}
+                                                    />
+                                                ))}
+                                                <div className="flex items-center gap-1.5 ml-1">
+                                                    <input
+                                                        type="color"
+                                                        value={slide.textColor || "#ffffff"}
+                                                        onChange={(e) => updateSlide(slide.id, { textColor: e.target.value })}
+                                                        className="w-7 h-7 rounded-full border border-gray-200 cursor-pointer"
+                                                        title="Custom color"
+                                                    />
+                                                    {slide.textColor && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => updateSlide(slide.id, { textColor: undefined })}
+                                                            className="text-[10px] text-brand-dark/30 hover:text-brand-dark/60 cursor-pointer"
+                                                        >
+                                                            Reset
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Font Style */}
+                                        <div>
+                                            <label className="block text-[10px] font-semibold text-brand-dark/40 uppercase tracking-[0.2em] mb-2">Font Style</label>
+                                            <div className="flex gap-1.5">
+                                                {OVERLAY_FONTS.map((f) => (
+                                                    <button
+                                                        key={f.value}
+                                                        type="button"
+                                                        onClick={() => updateSlide(slide.id, { fontStyle: f.value })}
+                                                        className={`px-4 py-2 rounded-lg text-sm cursor-pointer transition-all duration-150 active:scale-[0.95] ${f.preview} ${
+                                                            (slide.fontStyle || "serif") === f.value
+                                                                ? "bg-brand-purple text-white shadow-sm"
+                                                                : "bg-gray-50 text-brand-dark/50 border border-gray-100 hover:border-brand-lilac/30"
+                                                        }`}
+                                                    >
+                                                        {f.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
                                     </div>
                                     </motion.div>
                                 )}
@@ -537,6 +650,9 @@ export default function AdminFeaturedPage() {
                             ctaLink={previewSlide.ctaLink}
                             position={previewSlide.overlayPosition}
                             style={previewSlide.overlayStyle}
+                            textColor={previewSlide.textColor}
+                            fontStyle={previewSlide.fontStyle}
+                            overlayGradient={previewSlide.overlayGradient}
                         />
                         <button
                             onClick={() => setPreviewSlide(null)}

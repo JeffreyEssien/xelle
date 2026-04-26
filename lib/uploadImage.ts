@@ -1,19 +1,29 @@
+/** Cached upload token — reuse across parallel uploads (valid ~1hr) */
+let tokenCache: { signature: string; timestamp: string; apiKey: string; cloudName: string; folder: string; fetchedAt: number } | null = null;
+
+async function getUploadToken(): Promise<{ signature: string; timestamp: string; apiKey: string; cloudName: string; folder: string }> {
+    // Reuse token if less than 30 seconds old
+    if (tokenCache && Date.now() - tokenCache.fetchedAt < 30_000) {
+        return tokenCache;
+    }
+    const res = await fetch("/api/upload?folder=xelle");
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to get upload token");
+    }
+    const data = await res.json();
+    tokenCache = { ...data, fetchedAt: Date.now() };
+    return data;
+}
+
 /**
  * Simple Cloudinary upload for single image fields (logo, favicon, hero fallback).
  * Gets a signed token from /api/upload, uploads directly to Cloudinary.
  * Does NOT save to the media table — use MediaPicker for gallery-tracked uploads.
  */
 export async function uploadProductImage(file: File): Promise<string> {
-    // Step 1: Get signed upload params from our API
-    const tokenRes = await fetch("/api/upload?folder=xelle");
-    if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to get upload token");
-    }
+    const { signature, timestamp, apiKey, cloudName, folder } = await getUploadToken();
 
-    const { signature, timestamp, apiKey, cloudName, folder } = await tokenRes.json();
-
-    // Step 2: Upload directly to Cloudinary
     const resourceType = file.type.startsWith("video/") ? "video" : "image";
     const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
 
@@ -46,16 +56,8 @@ export async function uploadToGallery(file: File): Promise<{
     bytes: number;
     format: string;
 }> {
-    // Step 1: Get signed upload params
-    const tokenRes = await fetch("/api/upload?folder=xelle");
-    if (!tokenRes.ok) {
-        const err = await tokenRes.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to get upload token");
-    }
+    const { signature, timestamp, apiKey, cloudName, folder } = await getUploadToken();
 
-    const { signature, timestamp, apiKey, cloudName, folder } = await tokenRes.json();
-
-    // Step 2: Upload to Cloudinary
     const resourceType = file.type.startsWith("video/") ? "video" : "image";
     const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`;
 
@@ -73,7 +75,7 @@ export async function uploadToGallery(file: File): Promise<{
 
     const result = await uploadRes.json();
 
-    // Step 3: Save metadata to media table
+    // Save metadata to media table
     const mediaRes = await fetch("/api/media", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -91,7 +93,6 @@ export async function uploadToGallery(file: File): Promise<{
     });
 
     if (!mediaRes.ok) {
-        // Upload succeeded but DB save failed — still return the URL
         console.warn("Media saved to Cloudinary but failed to save to gallery DB");
     }
 
