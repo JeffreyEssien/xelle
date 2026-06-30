@@ -103,6 +103,14 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      - name: Clean up E2E test data
+        # Always runs — even when Cypress fails — so marked test rows never
+        # accumulate in the target DB. Deletes only rows carrying an E2E marker.
+        if: always()
+        run: node scripts/cleanup-e2e.mjs
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       - name: Upload Cypress screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4

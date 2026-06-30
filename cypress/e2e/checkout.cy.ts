@@ -1,3 +1,5 @@
+import { E2E_EMAIL } from "../../scripts/e2e-markers.mjs";
+
 describe("Checkout Page", () => {
     beforeEach(() => {
         cy.clearLocalStorage();
@@ -51,9 +53,10 @@ describe("Checkout Page", () => {
 
         cy.visit("/checkout");
 
-        cy.get('input[name="firstName"]').type("John");
-        cy.get('input[name="lastName"]').type("Doe");
-        cy.get('input[name="email"]').type("john@example.com");
+        cy.get('input[name="firstName"]').type("E2E");
+        cy.get('input[name="lastName"]').type("Test");
+        // Tagged email so any order this flow creates is removable by cleanup-e2e.
+        cy.get('input[name="email"]').type(E2E_EMAIL);
         cy.get('input[name="phone"]').type("08012345678");
         cy.get('input[name="address"]').type("123 Test Street, Lekki");
 

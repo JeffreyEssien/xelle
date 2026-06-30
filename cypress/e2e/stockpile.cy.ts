@@ -1,3 +1,5 @@
+import { E2E_EMAIL } from "../../scripts/e2e-markers.mjs";
+
 describe("Stockpile Page", () => {
     beforeEach(() => {
         cy.visit("/stockpile");
@@ -17,7 +19,7 @@ describe("Stockpile Page", () => {
     it("can search by email", () => {
         cy.get('input[placeholder*="email" i], input[placeholder*="stockpile" i]')
             .first()
-            .type("test@example.com");
+            .type(E2E_EMAIL);
         cy.contains("button", /find|search/i).click();
 
         // Should show result or "not found" message
