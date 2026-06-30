@@ -12,13 +12,9 @@
 
 # testing
 /coverage
-/__tests__
-/cypress
+# Unit (vitest) + E2E (cypress) suites are committed so CI can run them.
 /k6
 /tests
-cypress.config.ts
-vitest.config.ts
-vitest.setup.ts
 playwright.config.ts
 /playwright-report
 /test-results
