@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { Order } from "@/types";
-import { createOrder, validateCoupon, incrementCouponUsage } from "@/lib/queries";
+import { createOrder, validateCoupon } from "@/lib/queries";
 import { sendOrderEmails } from "@/lib/email";
 import { SITE_EMAIL } from "@/lib/constants";
 import { enqueue } from "@/lib/orderQueue";
@@ -59,12 +59,9 @@ export async function POST(request: Request) {
     order.id = `${prefix}${Date.now().toString(36).toUpperCase()}`;
 
     // Process through queue to prevent DB overload under traffic spikes
+    // createOrder() handles coupon usage_count increment internally after a
+    // successful insert — do NOT increment again here (was double-counting).
     await enqueue(() => createOrder(order));
-
-    // Increment coupon usage after successful order
-    if (order.couponCode) {
-      incrementCouponUsage(order.couponCode).catch((e) => console.warn("Coupon usage increment failed:", e));
-    }
 
     // Send emails (fire-and-forget so it doesn't block the response)
     sendOrderEmails(order).catch((e) => console.warn("Order email failed:", e));
