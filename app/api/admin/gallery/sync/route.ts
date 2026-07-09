@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createMedia } from "@/lib/queries";
 import { getServiceClient } from "@/lib/supabase";
+import { isAdminAuthed } from "@/lib/adminAuth";
 
 async function isAdmin(): Promise<boolean> {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_session")?.value;
-    const expected = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
-    return token === expected;
+    return isAdminAuthed();
 }
 
 interface CloudinaryResource {

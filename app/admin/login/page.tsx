@@ -12,6 +12,7 @@ export default function AdminLoginPage() {
 }
 
 function LoginForm() {
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ function LoginForm() {
             const res = await fetch("/api/admin/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password }),
+                body: JSON.stringify({ email: email.trim() || undefined, password }),
             });
 
             if (res.ok) {
@@ -35,7 +36,8 @@ function LoginForm() {
                 router.push(redirectTo);
                 router.refresh();
             } else {
-                setError("Invalid password");
+                const data = await res.json().catch(() => null);
+                setError(data?.error || "Invalid email or password");
             }
         } catch {
             setError("Something went wrong. Please try again.");
@@ -54,6 +56,22 @@ function LoginForm() {
 
                 <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-brand-lilac/10 p-6 space-y-4">
                     <div>
+                        <label htmlFor="email" className="block text-xs text-brand-dark/60 mb-1">
+                            Admin Email
+                        </label>
+                        <input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@xelle.com"
+                            autoComplete="username"
+                            className="w-full border border-brand-lilac/20 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
+                            autoFocus
+                        />
+                    </div>
+
+                    <div>
                         <label htmlFor="password" className="block text-xs text-brand-dark/60 mb-1">
                             Admin Password
                         </label>
@@ -63,8 +81,8 @@ function LoginForm() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Enter admin password"
+                            autoComplete="current-password"
                             className="w-full border border-brand-lilac/20 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
-                            autoFocus
                         />
                     </div>
 

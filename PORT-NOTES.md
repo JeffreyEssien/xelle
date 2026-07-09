@@ -24,6 +24,7 @@ Read on **2026-07-09** against XELLE branch `ci/setup-pipeline` and the local Z�
 - **Supabase service getter name differs.** XELLE = `getServiceClient()` (in `lib/supabase.ts`); ZúTa Ya = `getSupabaseServiceClient()`. ZúTa Ya's `adminAuth.ts`/`rateLimit.ts` call the ZúTa name — **rename to `getServiceClient` when porting.**
 - **XELLE `getServiceClient()` falls back to the anon client** when `SUPABASE_SERVICE_ROLE_KEY` is missing (dev convenience, `lib/supabase.ts`). Security-sensitive port code (auth, RLS-bypass writes) must treat a null/anon fallback as failure, not proceed.
 - **XELLE proxy is synchronous**, `matcher` = `/admin/:path*`. DB session validation makes it **async** (as in ZúTa Ya). ZúTa Ya also fails **open** if Supabase env is unset — keep that only behind a dev guard, not prod.
+- **`proxy.ts` IS the wired middleware.** Next.js 16 renamed `middleware.ts` → `proxy.ts`; the build errors if both exist. Do not add a `middleware.ts`. _(Resolved in 1.1.)_
 - **Admin login form is password-only.** Porting email+password means the login **UI** (`app/admin/login/…`) needs an email field, not just the route.
 
 **Tables XELLE lacks (Phase 1.1/1.2 must create):** `admin_users`, `admin_sessions`, `admin_audit_logs`, `rate_limits` (+ `increment_rate_limit` RPC). ZúTa Ya defines the first three in `supabase/migrations/015_admin_users_audit.sql`; `rate_limits`/RPC live in `025`.

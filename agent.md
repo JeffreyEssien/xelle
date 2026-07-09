@@ -38,8 +38,9 @@ Establish what XELLE actually looks like today so later tasks adapt instead of a
 
 **Goal:** replace the shared-password admin with real accounts, add an audit trail, tighten RLS, and make the order write-path atomic — all on XELLE's *current* payment flow. These ship together because they all touch the write/auth path.
 
-- [ ] **1.1 DB-only bcrypt admin auth.**
+- [x] **1.1 DB-only bcrypt admin auth.**
   Source: ZúTa Ya `admin_users` table, `admin_sessions`, bcryptjs hashing, `proxy.ts` session validation.
+  - _Done: migration `002_admin_auth.sql` (admin_users bcrypt + admin_sessions, service-only RLS); `lib/adminAuth.ts` (authenticateAdmin/validateSessionToken/getCurrentAdmin/`isAdminAuthed`/destroySession, hardened service-key guard); rewrote `/api/admin/login` (email+password, opt-in legacy fallback) + new `/api/admin/logout`; `proxy.ts` now DB-validates sessions (it's Next 16's wired middleware — removed a stray middleware.ts); replaced all 11 inline cookie checks with shared `isAdminAuthed()`; login UI gained email field; `scripts/seed-admin.mjs` + `npm run seed:admin`; `.env.example`; added `bcryptjs`. Kept `ADMIN_LEGACY_PASSWORD_FALLBACK` flag (default off) for cutover — remove in 1.2 verify. Verified via `next build` + dev-server curls: unauth→307 login, static-pw→401 (fallback off), unknown email→graceful 401, legacy login→200+cookie→protected 200→logout→401. bcrypt DB-account path needs migration 002 + seed run on Supabase (flagged for user)._
   - Add migration: `admin_users` (id, email, password_hash, role `admin|super_admin`, timestamps) and `admin_sessions` (token, admin_id, expires_at ~7 days).
   - Add `bcryptjs`. Rewrite `/api/admin/login` to look up `admin_users`, `bcrypt.compare`, mint a session token, set an httpOnly cookie.
   - Update `proxy.ts` middleware over `/admin/*` to validate the session token against `admin_sessions` (not the static password).

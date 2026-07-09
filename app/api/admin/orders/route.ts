@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createOrder } from "@/lib/queries";
+import { isAdminAuthed } from "@/lib/adminAuth";
 import type { Order } from "@/types";
 
 export async function POST(request: Request) {
     try {
         // Verify admin session
-        const cookieStore = await cookies();
-        const session = cookieStore.get("admin_session")?.value;
-        const secret = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
-
-        if (session !== secret) {
+        if (!(await isAdminAuthed())) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

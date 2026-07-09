@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { updateOrderStatus, updatePaymentInfo, updateOrderNotes, getOrderById } from "@/lib/queries";
 import { sendOrderShippedEmail, sendOrderDeliveredEmail, sendPaymentApprovedEmail, sendReviewRequestEmail } from "@/lib/email";
+import { isAdminAuthed } from "@/lib/adminAuth";
 import type { Order } from "@/types";
 
 const VALID_STATUSES = ["pending", "shipped", "delivered"] as const;
 
 async function isAdmin(): Promise<boolean> {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("admin_session")?.value;
-    const secret = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
-    return session === secret;
+    return isAdminAuthed();
 }
 
 export async function PUT(

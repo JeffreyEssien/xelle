@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
     getDeliveryZones,
     createDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
     createDeliveryLocation, updateDeliveryLocation, deleteDeliveryLocation,
 } from "@/lib/queries";
+import { isAdminAuthed } from "@/lib/adminAuth";
 
 async function isAdmin(): Promise<boolean> {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("admin_session")?.value;
-    const secret = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
-    return session === secret;
+    return isAdminAuthed();
 }
 
 export async function GET() {

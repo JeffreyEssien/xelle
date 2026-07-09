@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { getRecentOrders, getPendingPaymentOrders, getOrderCount } from "@/lib/queries";
+import { isAdminAuthed } from "@/lib/adminAuth";
 
 async function isAdmin(): Promise<boolean> {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("admin_session")?.value;
-    const secret = process.env.ADMIN_SESSION_SECRET || "xelle-admin-default-secret";
-    return session === secret;
+    return isAdminAuthed();
 }
 
 // This endpoint returns recent orders for the notification polling system.
