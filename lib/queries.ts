@@ -694,7 +694,9 @@ export async function incrementCouponUsage(code: string): Promise<void> {
 /* ── Customers ── */
 
 export async function getCustomers(): Promise<Profile[]> {
-    const supabase = getSupabaseClient();
+    // Server-only (called from the /admin/customers server component). Uses the
+    // service role so profiles can be RLS-locked against the anon key (006).
+    const supabase = getServiceClient();
     if (!supabase) return [];
 
     const { data, error } = await supabase
