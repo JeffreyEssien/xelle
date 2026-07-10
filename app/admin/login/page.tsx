@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AdminLoginPage() {
@@ -18,6 +18,12 @@ function LoginForm() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
+    const emailRef = useRef<HTMLInputElement>(null);
+
+    // Focus email on mount (reliable across the Suspense boundary, unlike the autoFocus attr).
+    useEffect(() => {
+        emailRef.current?.focus();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -60,6 +66,7 @@ function LoginForm() {
                             Admin Email
                         </label>
                         <input
+                            ref={emailRef}
                             id="email"
                             type="email"
                             value={email}
@@ -67,7 +74,6 @@ function LoginForm() {
                             placeholder="you@xelle.com"
                             autoComplete="username"
                             className="w-full border border-brand-lilac/20 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-purple/30"
-                            autoFocus
                         />
                     </div>
 
