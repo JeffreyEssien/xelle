@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getSiteSettings, updateSiteSettings } from "@/lib/queries";
+import { getSiteSettings } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { uploadProductImage } from "@/lib/uploadImage";
 import type { SiteSettings, HeroDisplayConfig, Media } from "@/types";
 import Button from "@/components/ui/Button";
@@ -90,7 +91,7 @@ export default function SiteSettingsForm() {
         e.preventDefault();
         setSaving(true);
         try {
-            await updateSiteSettings(settings);
+            await adminMutate("updateSiteSettings", settings);
             toast.success("Settings saved successfully.");
         } catch {
             toast.error("Failed to save settings.");

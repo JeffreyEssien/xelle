@@ -5,7 +5,7 @@ import type { InventoryLog, InventoryItem } from "@/types";
 import { formatCurrency } from "@/lib/formatCurrency";
 import Button from "@/components/ui/Button";
 import { toast } from "sonner";
-import { updateInventoryItem, logInventoryChange, createInventoryItem } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -58,14 +58,14 @@ export default function InventoryContent({ logs: initialLogs, inventory: initial
             if (adjustmentAmount !== "" && adjustmentAmount !== 0) {
                 const amount = Number(adjustmentAmount);
                 newStock += amount;
-                await logInventoryChange(selectedItem.id, amount, reason || "Manual Adjustment");
+                await adminMutate("logInventoryChange", selectedItem.id, amount, reason || "Manual Adjustment");
                 // We should strictly update inventory_items stock here, 
                 // but for now relying on the same flow or ensuring `updateInventoryItem` covers it.
                 // Actually `updateInventoryItem` is better than `updateProductStock` now.
             }
 
             // 2. Update Prices
-            await updateInventoryItem(selectedItem.id, {
+            await adminMutate("updateInventoryItem", selectedItem.id, {
                 stock: newStock,
                 costPrice: Number(costPrice),
                 sellingPrice: Number(sellingPrice)
@@ -109,7 +109,7 @@ export default function InventoryContent({ logs: initialLogs, inventory: initial
         e.preventDefault();
         const toastId = toast.loading("Creating item...");
         try {
-            await createInventoryItem({
+            await adminMutate("createInventoryItem", {
                 sku: newItem.sku || newItem.name.toUpperCase().slice(0, 3) + "-" + Date.now().toString().slice(-4),
                 name: newItem.name,
                 costPrice: Number(newItem.costPrice),

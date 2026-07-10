@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Category } from "@/types";
-import { createCategory, updateCategory } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { uploadProductImage } from "@/lib/uploadImage";
 import Button from "@/components/ui/Button";
 import { toast } from "sonner";
@@ -56,10 +56,10 @@ export default function CategoryForm({ initialData, onSuccess, onCancel }: Categ
         setIsLoading(true);
         try {
             if (initialData) {
-                await updateCategory(initialData.id, form);
+                await adminMutate("updateCategory", initialData.id, form);
                 toast.success("Category updated");
             } else {
-                await createCategory(form);
+                await adminMutate("createCategory", form);
                 toast.success("Category created");
             }
             onSuccess();

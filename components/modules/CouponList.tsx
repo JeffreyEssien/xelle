@@ -1,7 +1,7 @@
 "use client";
 
 import { Coupon } from "@/types";
-import { deleteCoupon, toggleCouponStatus } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { useRouter } from "next/navigation";
 import Badge from "@/components/ui/Badge";
 import { useState } from "react";
@@ -13,7 +13,7 @@ export default function CouponList({ initialCoupons }: { initialCoupons: Coupon[
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this coupon?")) return;
         try {
-            await deleteCoupon(id);
+            await adminMutate("deleteCoupon", id);
             router.refresh();
         } catch (e) {
             alert("Failed to delete");
@@ -23,7 +23,7 @@ export default function CouponList({ initialCoupons }: { initialCoupons: Coupon[
     const handleToggle = async (id: string, currentStatus: boolean) => {
         setLoadingIds(prev => [...prev, id]);
         try {
-            await toggleCouponStatus(id, !currentStatus);
+            await adminMutate("toggleCouponStatus", id, !currentStatus);
             router.refresh();
         } catch (e) {
             alert("Failed to update status");

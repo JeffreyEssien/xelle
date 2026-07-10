@@ -2,10 +2,7 @@
 
 import { useState, useMemo } from "react";
 import type { DeliveryZoneWithLocations } from "@/lib/queries";
-import {
-    createDeliveryZone, updateDeliveryZone, deleteDeliveryZone,
-    createDeliveryLocation, updateDeliveryLocation, deleteDeliveryLocation,
-} from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { formatCurrency } from "@/lib/formatCurrency";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -58,7 +55,7 @@ export default function DeliveryManagement({ initialZones }: Props) {
     const handleToggleZone = async (zone: DeliveryZoneWithLocations) => {
         const tid = toast.loading("Updating...");
         try {
-            await updateDeliveryZone(zone.id, { isActive: !zone.is_active });
+            await adminMutate("updateDeliveryZone",zone.id, { isActive: !zone.is_active });
             setZones(prev => prev.map(z => z.id === zone.id ? { ...z, is_active: !z.is_active } : z));
             toast.success(zone.is_active ? "Zone deactivated" : "Zone activated", { id: tid });
             router.refresh();
@@ -69,7 +66,7 @@ export default function DeliveryManagement({ initialZones }: Props) {
         if (!confirm(`Delete "${name}" and all its locations? This cannot be undone.`)) return;
         const tid = toast.loading("Deleting...");
         try {
-            await deleteDeliveryZone(id);
+            await adminMutate("deleteDeliveryZone",id);
             setZones(prev => prev.filter(z => z.id !== id));
             toast.success("Zone deleted", { id: tid });
             router.refresh();
@@ -80,7 +77,7 @@ export default function DeliveryManagement({ initialZones }: Props) {
     const handleToggleLoc = async (loc: DeliveryZoneWithLocations["locations"][0]) => {
         const tid = toast.loading("Updating...");
         try {
-            await updateDeliveryLocation(loc.id, { isActive: !loc.is_active });
+            await adminMutate("updateDeliveryLocation",loc.id, { isActive: !loc.is_active });
             setZones(prev => prev.map(z => ({
                 ...z,
                 locations: z.locations.map(l => l.id === loc.id ? { ...l, is_active: !l.is_active } : l),
@@ -94,7 +91,7 @@ export default function DeliveryManagement({ initialZones }: Props) {
         if (!confirm(`Remove "${name}"?`)) return;
         const tid = toast.loading("Deleting...");
         try {
-            await deleteDeliveryLocation(locId);
+            await adminMutate("deleteDeliveryLocation",locId);
             setZones(prev => prev.map(z => ({
                 ...z,
                 locations: z.locations.filter(l => l.id !== locId),
@@ -489,7 +486,7 @@ function DiscountsPanel({ zones, onUpdate }: {
     const applyDiscount = async (zoneId: string, percent: number, label: string) => {
         const tid = toast.loading("Applying discount...");
         try {
-            await updateDeliveryZone(zoneId, { discountPercent: percent, discountLabel: label || null });
+            await adminMutate("updateDeliveryZone",zoneId, { discountPercent: percent, discountLabel: label || null });
             onUpdate(zoneId, { discount_percent: percent, discount_label: label || null });
             toast.success("Discount applied!", { id: tid });
             router.refresh();
@@ -499,7 +496,7 @@ function DiscountsPanel({ zones, onUpdate }: {
     const removeDiscount = async (zoneId: string) => {
         const tid = toast.loading("Removing...");
         try {
-            await updateDeliveryZone(zoneId, { discountPercent: 0, discountLabel: null });
+            await adminMutate("updateDeliveryZone",zoneId, { discountPercent: 0, discountLabel: null });
             onUpdate(zoneId, { discount_percent: 0, discount_label: null });
             toast.success("Discount removed", { id: tid });
             router.refresh();
@@ -614,7 +611,7 @@ function EditZonePanel({ zone, onSave, onClose }: {
     const handleSave = async () => {
         setSaving(true);
         try {
-            await updateDeliveryZone(zone.id, {
+            await adminMutate("updateDeliveryZone",zone.id, {
                 name: name.trim(),
                 baseFee: baseFee ? Number(baseFee) : null,
                 hubEstimate: hubEst.trim() || null,
@@ -686,7 +683,7 @@ function EditLocRow({ loc, isLagos, allowsHub, zoneFee, onSave, onCancel }: {
     const save = async () => {
         setSaving(true);
         try {
-            await updateDeliveryLocation(loc.id, {
+            await adminMutate("updateDeliveryLocation",loc.id, {
                 name: name.trim(),
                 hubPickupFee: hubFee ? Number(hubFee) : null,
                 doorstepFee: doorFee ? Number(doorFee) : null,
@@ -746,7 +743,7 @@ function EditLocMobile({ loc, isLagos, allowsHub, zoneFee, onSave, onCancel }: {
     const save = async () => {
         setSaving(true);
         try {
-            await updateDeliveryLocation(loc.id, {
+            await adminMutate("updateDeliveryLocation",loc.id, {
                 name: name.trim(),
                 hubPickupFee: hubFee ? Number(hubFee) : null,
                 doorstepFee: doorFee ? Number(doorFee) : null,
@@ -794,7 +791,7 @@ function AddLocationForm({ zoneId, isLagos, allowsHub, onCreated, onCancel }: {
         if (!name.trim()) return;
         setLoading(true);
         try {
-            const id = await createDeliveryLocation({
+            const id = await adminMutate<string>("createDeliveryLocation",{
                 zoneId, name: name.trim(),
                 hubPickupFee: hubFee ? Number(hubFee) : null,
                 doorstepFee: doorFee ? Number(doorFee) : null,
@@ -847,7 +844,7 @@ function BulkAddLocations({ zoneId, onDone, onCancel }: {
         let failed = 0;
         for (const name of names) {
             try {
-                const id = await createDeliveryLocation({ zoneId, name });
+                const id = await adminMutate<string>("createDeliveryLocation",{ zoneId, name });
                 created.push({ id, zone_id: zoneId, name, hub_pickup_fee: null, doorstep_fee: null, is_active: true, created_at: new Date().toISOString() });
             } catch { failed++; }
         }
@@ -903,7 +900,7 @@ function CreateZoneModal({ defaultType, onCreated, onClose }: {
         if (!name.trim()) return;
         setLoading(true);
         try {
-            const id = await createDeliveryZone({
+            const id = await adminMutate<string>("createDeliveryZone",{
                 name: name.trim(), zoneType: type,
                 baseFee: baseFee ? Number(baseFee) : undefined,
                 allowsHubPickup: type === "interstate" ? allowsHub : false,

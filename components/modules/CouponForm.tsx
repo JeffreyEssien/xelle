@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Button from "@/components/ui/Button";
-import { createCoupon } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 
 export default function CouponForm({ onSuccess }: { onSuccess: () => void }) {
     const [code, setCode] = useState("");
@@ -45,7 +45,7 @@ export default function CouponForm({ onSuccess }: { onSuccess: () => void }) {
         e.preventDefault();
         setLoading(true);
         try {
-            await createCoupon({
+            await adminMutate("createCoupon", {
                 code,
                 discountPercent: parseInt(discount),
                 isActive: true,

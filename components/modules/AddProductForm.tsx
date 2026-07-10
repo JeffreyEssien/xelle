@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import type { Product, InventoryItem, Category } from "@/types";
 import Button from "@/components/ui/Button";
 import { uploadProductImage } from "@/lib/uploadImage";
-import { createProduct, updateProduct, createInventoryItem, getInventoryItems, getCategories } from "@/lib/queries";
+import { getInventoryItems, getCategories } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import MediaRenderer from "@/components/ui/MediaRenderer";
 import { revalidateShop } from "@/app/actions";
 import RichTextEditor from "@/components/modules/RichTextEditor";
@@ -110,7 +111,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
 
         if (initialData) {
                 // Edit (Standard Update)
-                await updateProduct(initialData.id, {
+                await adminMutate("updateProduct", initialData.id, {
                     name: form.title,
                     description: form.description,
                     price: parseFloat(form.price),
@@ -127,7 +128,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
 
                 if (mode === "new") {
                     // 1. Create Inventory Item
-                    inventoryId = await createInventoryItem({
+                    inventoryId = await adminMutate<string>("createInventoryItem", {
                         sku: invForm.sku || form.title.toUpperCase().slice(0, 3) + "-" + Date.now().toString().slice(-4),
                         name: form.title,
                         costPrice: Number(invForm.costPrice),
@@ -147,7 +148,7 @@ export default function AddProductForm({ initialData }: { initialData?: Product 
                 }
 
                 // 3. Create Product linked to Inventory
-                await createProduct({
+                await adminMutate("createProduct", {
                     name: form.title,
                     description: form.description,
                     price: parseFloat(form.price),

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import type { Category } from "@/types";
-import { getCategories, deleteCategory } from "@/lib/queries";
+import { getCategories } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import Button from "@/components/ui/Button";
 import CategoryForm from "@/components/modules/CategoryForm";
 import Image from "next/image";
@@ -32,7 +33,7 @@ export default function AdminCategoriesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this category?")) return;
         try {
-            await deleteCategory(id);
+            await adminMutate("deleteCategory", id);
             await fetchCategories();
         } catch (error) {
             alert("Failed to delete category.");

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getSiteSettings, updateSiteSettings, getProducts } from "@/lib/queries";
+import { getSiteSettings, getProducts } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import type { SiteSettings, FeaturedSlide, OverlayPosition, OverlayStyle, OverlayFont, OverlayGradient, Product } from "@/types";
 import type { Media } from "@/types";
 import MediaPicker from "@/components/modules/MediaPicker";
@@ -101,7 +102,7 @@ export default function AdminFeaturedPage() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            await updateSiteSettings({
+            await adminMutate("updateSiteSettings", {
                 ...settings,
                 featuredSlides: slides,
                 heroDisplayConfig: {

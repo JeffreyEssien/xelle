@@ -4,7 +4,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
 import { useState, useEffect } from "react";
-import { getPageById, updatePage } from "@/lib/queries";
+import { getPageById } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Page } from "@/types";
@@ -63,7 +64,7 @@ export default function EditPage({ params }: { params: Promise<{ id: string }> }
 
         setIsSaving(true);
         try {
-            await updatePage(id, {
+            await adminMutate("updatePage", id, {
                 title,
                 slug,
                 content: editor?.getHTML(),

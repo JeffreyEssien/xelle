@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
 import { useState } from "react";
-import { createPage } from "@/lib/queries";
+import { adminMutate } from "@/lib/adminMutate";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -39,7 +39,7 @@ export default function NewPage() {
 
         setIsSaving(true);
         try {
-            await createPage({
+            await adminMutate("createPage", {
                 title,
                 slug,
                 content: editor?.getHTML(),
