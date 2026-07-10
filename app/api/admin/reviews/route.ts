@@ -7,7 +7,7 @@ import {
     deleteReview,
     updateReviewOrder,
 } from "@/lib/queries";
-import { isAdminAuthed } from "@/lib/adminAuth";
+import { isAdminAuthed, logAdminAction } from "@/lib/adminAuth";
 
 async function isAdmin(): Promise<boolean> {
     return isAdminAuthed();
@@ -40,16 +40,19 @@ export async function POST(req: NextRequest) {
             case "approve":
                 if (!reviewId) return NextResponse.json({ error: "reviewId required" }, { status: 400 });
                 await approveReview(reviewId);
+                await logAdminAction("review.approved", { type: "review", id: reviewId });
                 return NextResponse.json({ success: true });
 
             case "hide":
                 if (!reviewId) return NextResponse.json({ error: "reviewId required" }, { status: 400 });
                 await hideReview(reviewId);
+                await logAdminAction("review.hidden", { type: "review", id: reviewId });
                 return NextResponse.json({ success: true });
 
             case "delete":
                 if (!reviewId) return NextResponse.json({ error: "reviewId required" }, { status: 400 });
                 await deleteReview(reviewId);
+                await logAdminAction("review.deleted", { type: "review", id: reviewId });
                 return NextResponse.json({ success: true });
 
             case "reorder":

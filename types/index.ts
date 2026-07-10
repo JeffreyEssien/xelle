@@ -276,3 +276,14 @@ export interface Review {
     createdAt: string;
     updatedAt: string;
 }
+
+export interface AuditLog {
+    id: string;
+    adminId: string | null;
+    adminEmail: string;
+    action: string;
+    targetType: string | null;
+    targetId: string | null;
+    metadata: Record<string, unknown> | null;
+    createdAt: string;
+}

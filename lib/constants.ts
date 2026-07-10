@@ -31,6 +31,7 @@ export const ADMIN_NAV_LINKS = [
     { label: "Delivery", href: "/admin/delivery", icon: "truck" },
     { label: "Settings", href: "/admin/settings", icon: "cog" },
     { label: "Categories", href: "/admin/categories", icon: "tag" },
+    { label: "Audit Log", href: "/admin/audit", icon: "shield" },
 ] as const;
 
 export const WHATSAPP_NUMBER = "2347011378490";

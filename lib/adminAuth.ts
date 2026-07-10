@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { compare } from "bcryptjs";
 import { getServiceClient } from "@/lib/supabase";
+import { insertAuditLog } from "@/lib/queries";
 
 /**
  * DB-backed admin auth (bcrypt accounts + opaque server sessions).
@@ -123,6 +124,31 @@ export async function destroySession(token: string | undefined): Promise<void> {
     const db = getAdminDb();
     if (!db) return;
     await db.from("admin_sessions").delete().eq("token", token);
+}
+
+/**
+ * Append a sensitive admin action to the audit trail. Never throws — a failed
+ * log must not break the mutation it records. Pass `admin` explicitly right
+ * after authenticating (login), otherwise it's resolved from the request cookie.
+ */
+export async function logAdminAction(
+    action: string,
+    target?: { type?: string; id?: string; metadata?: Record<string, unknown> },
+    admin?: AdminUser | null,
+): Promise<void> {
+    try {
+        const who = admin ?? (await getCurrentAdmin());
+        await insertAuditLog({
+            adminId: who && who.id !== "legacy" ? who.id : null,
+            adminEmail: who?.email ?? "unknown",
+            action,
+            targetType: target?.type ?? null,
+            targetId: target?.id ?? null,
+            metadata: target?.metadata ?? null,
+        });
+    } catch (e) {
+        console.warn("logAdminAction failed:", e);
+    }
 }
 
 function toAdminUser(row: any): AdminUser {

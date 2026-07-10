@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { deleteProduct } from "@/lib/queries";
-import { isAdminAuthed } from "@/lib/adminAuth";
+import { isAdminAuthed, logAdminAction } from "@/lib/adminAuth";
 
 async function isAdmin(): Promise<boolean> {
     return isAdminAuthed();
@@ -18,6 +18,7 @@ export async function DELETE(request: Request) {
         }
 
         await deleteProduct(id);
+        await logAdminAction("product.deleted", { type: "product", id });
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Delete product error:", error);

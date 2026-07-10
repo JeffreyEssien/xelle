@@ -1,5 +1,5 @@
 import { getSupabaseClient, getServiceClient } from "@/lib/supabase";
-import type { Product, Category, Order, SiteSettings, Coupon, Profile, InventoryLog, Page, InventoryItem, Review, Media, HeroDisplayConfig, FeaturedSlide } from "@/types";
+import type { Product, Category, Order, SiteSettings, Coupon, Profile, InventoryLog, Page, InventoryItem, Review, Media, HeroDisplayConfig, FeaturedSlide, AuditLog } from "@/types";
 
 interface DbProduct {
     id: string;
@@ -1697,4 +1697,47 @@ export async function expireOldStockpiles(): Promise<number> {
 
     if (error) return 0;
     return data?.length || 0;
+}
+
+// ─── Admin audit log (Phase 1.2) ────────────────────────────────
+export async function insertAuditLog(entry: {
+    adminId: string | null;
+    adminEmail: string;
+    action: string;
+    targetType?: string | null;
+    targetId?: string | null;
+    metadata?: Record<string, unknown> | null;
+}): Promise<void> {
+    const supabase = getServiceClient();
+    if (!supabase) return;
+    const { error } = await supabase.from("admin_audit_logs").insert({
+        admin_id: entry.adminId,
+        admin_email: entry.adminEmail,
+        action: entry.action,
+        target_type: entry.targetType ?? null,
+        target_id: entry.targetId ?? null,
+        metadata: entry.metadata ?? null,
+    });
+    if (error) console.warn("insertAuditLog failed:", error.message);
+}
+
+export async function getAuditLogs(limit = 200): Promise<AuditLog[]> {
+    const supabase = getServiceClient();
+    if (!supabase) return [];
+    const { data, error } = await supabase
+        .from("admin_audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+    if (error || !data) return [];
+    return data.map((r: any) => ({
+        id: r.id,
+        adminId: r.admin_id ?? null,
+        adminEmail: r.admin_email,
+        action: r.action,
+        targetType: r.target_type ?? null,
+        targetId: r.target_id ?? null,
+        metadata: typeof r.metadata === "string" ? JSON.parse(r.metadata) : (r.metadata ?? null),
+        createdAt: r.created_at,
+    }));
 }

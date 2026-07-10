@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateAdmin, legacyFallbackEnabled, legacySecret, ADMIN_COOKIE } from "@/lib/adminAuth";
+import { authenticateAdmin, legacyFallbackEnabled, legacySecret, logAdminAction, ADMIN_COOKIE } from "@/lib/adminAuth";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
@@ -28,6 +28,7 @@ export async function POST(request: Request) {
             if (!result) {
                 return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
             }
+            await logAdminAction("admin.login", undefined, result.admin);
             return sessionCookie(
                 NextResponse.json({
                     success: true,
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         if (legacyFallbackEnabled()) {
             const adminPassword = process.env.ADMIN_PASSWORD;
             if (adminPassword && password === adminPassword) {
+                await logAdminAction("admin.login_legacy");
                 return sessionCookie(NextResponse.json({ success: true, legacy: true }), legacySecret());
             }
         }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createOrder } from "@/lib/queries";
-import { isAdminAuthed } from "@/lib/adminAuth";
+import { isAdminAuthed, logAdminAction } from "@/lib/adminAuth";
 import type { Order } from "@/types";
 
 export async function POST(request: Request) {
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
 
         // Insert into Supabase (uses the same createOrder as checkout — minus stock deduction handled inside)
         await createOrder(order);
+        await logAdminAction("order.created_manual", { type: "order", id: order.id, metadata: { total: order.total } });
 
         console.log(`\n🛍️ ADMIN ORDER CREATED: ${order.id}`);
         console.log(`   Customer: ${order.customerName} (${order.email})`);

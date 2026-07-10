@@ -48,8 +48,10 @@ Establish what XELLE actually looks like today so later tasks adapt instead of a
   - Keep `ADMIN_PASSWORD` working ONLY as a temporary fallback behind a feature flag if needed for cutover, then remove it in 1.2's verify.
   - **Verify:** logging in with a seeded `admin_users` row works; the old static `ADMIN_PASSWORD` no longer grants access once the flag is off; sessions expire.
 
-- [ ] **1.2 Admin audit log.**
+- [x] **1.2 Admin audit log.**
   Source: ZúTa Ya `admin_audit_logs` + `logAdminAction` / `logCronEvent`.
+  - _Done: migration `003_admin_audit.sql` (admin_audit_logs, append-only, service-only RLS); `insertAuditLog`/`getAuditLogs` in `lib/queries.ts` (+ `AuditLog` type); `logAdminAction(action, target?, admin?)` in `lib/adminAuth.ts` — resolves current admin, never throws. Wired into: login (success + legacy), order status change (PUT), payment confirmation (PATCH), manual order create, product delete, review approve/hide/delete. Read-only view at `/admin/audit` (+ sidebar "Audit Log" link, ShieldCheck icon). Verified: build/typecheck green; dev-server — legacy login stays 200 while `insertAuditLog` degrades gracefully on the missing table (logged warning, mutation unaffected), and `/admin/audit` renders its empty state (200). Row persistence needs migration 003 applied on Supabase._
+  - **DEFERRED — ADMIN_PASSWORD fallback NOT removed.** 1.2 verify says remove it, but doing so before the user runs migration 002 + `npm run seed:admin` would lock them out (no DB admin exists yet). Remove `ADMIN_LEGACY_PASSWORD_FALLBACK`/`ADMIN_PASSWORD` paths once the first super_admin is seeded and DB login is confirmed.
   - Add migration: `admin_audit_logs` (id, admin_id, action, target_type, target_id, metadata jsonb, created_at).
   - Add a `logAdminAction(adminId, action, target, meta)` helper. Call it from the sensitive admin mutations first: order status changes, payment confirmation (`PATCH`/`PUT /api/orders/[id]`), product create/edit, inventory adjustments, coupon changes.
   - Add a read-only admin view listing recent audit entries.

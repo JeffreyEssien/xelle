@@ -79,6 +79,7 @@ products, categories, orders, site_settings, inventory_items, inventory_logs, co
 ## Admin Auth
 DB-backed accounts (Phase 1.1): `admin_users` (bcrypt `password_hash`) + `admin_sessions` (opaque token, 7-day expiry) — see migration `002_admin_auth.sql`. Login is email+password (`/api/admin/login` → `lib/adminAuth.ts` `authenticateAdmin`), sets an httpOnly `admin_session` cookie holding a random session token; `/api/admin/logout` destroys it. `proxy.ts` (Next.js 16 middleware convention — the renamed `middleware.ts`) validates the token against `admin_sessions` for `/admin/*` pages; API routes call the shared `isAdminAuthed()` guard. Seed the first super_admin: run migration 002, then `npm run seed:admin` (reads `INITIAL_ADMIN_*`).
 - **Cutover flag `ADMIN_LEGACY_PASSWORD_FALLBACK`** (default off): when `true`, the old shared `ADMIN_PASSWORD` + static `ADMIN_SESSION_SECRET` cookie still work so a deploy isn't locked out before seeding. Remove after cutover (Phase 1.2). With it off, the hardcoded default secret no longer grants access (mitigates old issue #6).
+- **Audit log (Phase 1.2):** sensitive admin actions (login, order status/payment, product delete, review moderation) are written to `admin_audit_logs` via `logAdminAction()` (in `lib/adminAuth.ts`, never throws). Read-only view at `/admin/audit` (migration `003_admin_audit.sql`).
 
 ## Important Constants (lib/constants.ts)
 - Currency: NGN (Nigerian Naira)

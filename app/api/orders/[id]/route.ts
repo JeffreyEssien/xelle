@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updateOrderStatus, updatePaymentInfo, updateOrderNotes, getOrderById } from "@/lib/queries";
 import { sendOrderShippedEmail, sendOrderDeliveredEmail, sendPaymentApprovedEmail, sendReviewRequestEmail } from "@/lib/email";
-import { isAdminAuthed } from "@/lib/adminAuth";
+import { isAdminAuthed, logAdminAction } from "@/lib/adminAuth";
 import type { Order } from "@/types";
 
 const VALID_STATUSES = ["pending", "shipped", "delivered"] as const;
@@ -32,6 +32,7 @@ export async function PUT(
         }
 
         await updateOrderStatus(id, status as Order["status"]);
+        await logAdminAction("order.status_changed", { type: "order", id, metadata: { status } });
 
         // Revalidate admin pages to reflect changes immediately
         revalidatePath("/admin");
@@ -95,6 +96,11 @@ export async function PATCH(
                 senderName: senderName || undefined,
                 paymentStatus: paymentStatus || undefined,
             });
+        }
+
+        // Audit the admin-only payment confirmation (customer-driven submissions aren't logged)
+        if (paymentStatus === "payment_confirmed") {
+            await logAdminAction("order.payment_confirmed", { type: "order", id });
         }
 
         revalidatePath("/admin");
