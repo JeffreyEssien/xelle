@@ -282,8 +282,20 @@ export async function createOrder(order: Order): Promise<void> {
     const supabase = getServiceClient();
     if (!supabase) throw new Error("Database not available");
 
-    // Insert Order FIRST (before deducting stock) so stock isn't lost on insert failure
-    const insertData: any = {
+    // Stockpile orders already deducted stock when items were added to the
+    // stockpile — pass no items so the RPC skips deduction for them.
+    const skipStockDeduction = order.deliveryZone === "stockpile";
+    const p_items = skipStockDeduction
+        ? []
+        : order.items.map((item) => ({
+            product_id: item.product.id,
+            product_name: item.product.name,
+            quantity: item.quantity,
+            variant_name: item.variant?.name ?? null,
+            inventory_item_id: item.variant ? null : (item.product.inventoryId ?? null),
+        }));
+
+    const p_order = {
         id: order.id,
         customer_name: order.customerName,
         email: order.email,
@@ -294,91 +306,23 @@ export async function createOrder(order: Order): Promise<void> {
         total: order.total,
         status: order.status,
         shipping_address: order.shippingAddress,
-        notes: order.notes || null,
-        coupon_code: order.couponCode || null,
-        discount_total: order.discountTotal || 0,
-        created_at: new Date().toISOString()
+        notes: order.notes ?? null,
+        coupon_code: order.couponCode ?? null,
+        discount_total: order.discountTotal ?? 0,
+        payment_method: order.paymentMethod ?? null,
+        sender_name: order.senderName ?? null,
+        payment_status: order.paymentStatus ?? null,
+        delivery_zone: order.deliveryZone ?? null,
+        delivery_type: order.deliveryType ?? null,
+        delivery_discount: order.deliveryDiscount ?? null,
+        created_at: new Date().toISOString(),
     };
 
-    // Add payment fields only if they have values (avoids errors if columns don't exist yet)
-    if (order.paymentMethod) insertData.payment_method = order.paymentMethod;
-    if (order.paymentStatus) insertData.payment_status = order.paymentStatus;
-    if (order.senderName) insertData.sender_name = order.senderName;
-    if (order.deliveryZone) insertData.delivery_zone = order.deliveryZone;
-    if (order.deliveryType) insertData.delivery_type = order.deliveryType;
-    if (order.deliveryDiscount) insertData.delivery_discount = order.deliveryDiscount;
-
-    const { error } = await supabase.from("orders").insert(insertData);
-
-    if (error) throw error;
-
-    // Deduct stock atomically via RPC AFTER order insert succeeds
-    // If stock deduction fails, remove the order to prevent overselling
-    // Skip for stockpile orders — stock is already deducted when items are added to the stockpile
-    const skipStockDeduction = order.deliveryZone === "stockpile";
-    try {
-        for (const item of order.items) {
-            if (skipStockDeduction) break;
-            if (item.variant) {
-                const { error: rpcError } = await supabase.rpc("deduct_variant_stock", {
-                    p_product_id: item.product.id,
-                    p_variant_name: item.variant.name,
-                    p_quantity: item.quantity,
-                });
-
-                if (rpcError) {
-                    throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name} - ${item.variant.name}`);
-                }
-
-                const { error: logError } = await supabase.from("inventory_logs").insert({
-                    product_id: item.product.id,
-                    change_amount: -item.quantity,
-                    reason: `order_variant_${item.variant.name}`
-                });
-                if (logError) console.warn("Inventory log failed (variant):", logError.message);
-
-            } else if (item.product.inventoryId) {
-                const { error: rpcError } = await supabase.rpc("deduct_stock", {
-                    p_inventory_id: item.product.inventoryId,
-                    p_quantity: item.quantity,
-                });
-
-                if (rpcError) {
-                    throw new Error(rpcError.message || `Stock deduction failed for ${item.product.name}`);
-                }
-
-                const { error: logError } = await supabase.from("inventory_logs").insert({
-                    product_id: item.product.id,
-                    change_amount: -item.quantity,
-                    reason: 'order_main'
-                });
-                if (logError) console.warn("Inventory log failed:", logError.message);
-            }
-        }
-    } catch (stockError) {
-        // Stock deduction failed — delete the order so customer can retry
-        await supabase.from("orders").delete().eq("id", order.id);
-        throw stockError;
-    }
-
-    // Increment coupon usage count if applicable (best-effort, don't fail the order)
-    if (order.couponCode) {
-        try {
-            const { data: couponData } = await supabase
-                .from("coupons")
-                .select("usage_count")
-                .eq("code", order.couponCode.toUpperCase())
-                .single();
-            if (couponData) {
-                await supabase
-                    .from("coupons")
-                    .update({ usage_count: (couponData.usage_count || 0) + 1 })
-                    .eq("code", order.couponCode.toUpperCase());
-            }
-        } catch (e) {
-            console.warn("Coupon usage_count update failed:", e);
-        }
-    }
+    // One transaction: FOR UPDATE-locked stock deduction + order insert + coupon
+    // usage increment. Rolls back entirely on any failure — no oversell, no
+    // orphan order, no double-counted coupon. (Replaces the old multi-step path.)
+    const { error } = await supabase.rpc("create_order_atomic", { p_order, p_items });
+    if (error) throw new Error(error.message || "Order creation failed");
 }
 
 export async function updatePaymentInfo(
@@ -1289,19 +1233,14 @@ export async function removeStockpileItem(itemId: string, stockpileId: string): 
     await recalcStockpileTotal(stockpileId);
 }
 
-/** Recalculate total items value for a stockpile */
+/** Recalculate total items value for a stockpile, under a row lock (no lost
+ * updates under concurrent adds/removes — the recompute happens inside the RPC). */
 async function recalcStockpileTotal(stockpileId: string): Promise<void> {
     const supabase = getServiceClient();
     if (!supabase) return;
 
-    const { data: items } = await supabase
-        .from("stockpile_items")
-        .select("price_paid, quantity")
-        .eq("stockpile_id", stockpileId);
-
-    const total = (items || []).reduce((sum, i) => sum + Number(i.price_paid) * i.quantity, 0);
-
-    await supabase.from("stockpiles").update({ total_items_value: total }).eq("id", stockpileId);
+    const { error } = await supabase.rpc("recalc_stockpile_total", { p_stockpile_id: stockpileId });
+    if (error) console.warn("recalc_stockpile_total failed:", error.message);
 }
 
 /** Update stockpile status */
